@@ -2,17 +2,32 @@ import Foundation
 
 final class HTTPClient {
     private let session: URLSession
+    private let sessionDelegate: URLSessionDelegate?
     private let decoder: JSONDecoder
     private let encoder: JSONEncoder
+    private let cache: URLCache
+    private let maxRetries: Int
+    private let initialRetryDelay: TimeInterval
 
-    init(session: URLSession = .shared) {
-        let configuration = URLSessionConfiguration.default
+    init(sessionConfiguration: URLSessionConfiguration = .default,
+         cache: URLCache = HTTPClient.makeDefaultCache(),
+         maxRetries: Int = 2,
+         initialRetryDelay: TimeInterval = 0.5) {
+        let configuration = sessionConfiguration
         configuration.timeoutIntervalForRequest = 8
         configuration.timeoutIntervalForResource = 8
-        self.session = URLSession(configuration: configuration)
+        configuration.urlCache = cache
+        configuration.requestCachePolicy = .useProtocolCachePolicy
+
+        let delegate = SSLPinningDelegate()
+        self.session = URLSession(configuration: configuration, delegate: delegate, delegateQueue: nil)
+        self.sessionDelegate = delegate
 
         self.decoder = JSONDecoder()
         self.encoder = JSONEncoder()
+        self.cache = cache
+        self.maxRetries = maxRetries
+        self.initialRetryDelay = initialRetryDelay
 
         decoder.dateDecodingStrategy = .custom { decoder in
             let container = try decoder.singleValueContainer()
@@ -82,6 +97,7 @@ final class HTTPClient {
         var request = URLRequest(url: url)
         request.httpMethod = method.rawValue
         request.httpBody = bodyData
+        request.cachePolicy = method == .get ? .useProtocolCachePolicy : .reloadIgnoringLocalCacheData
 
         var combinedHeaders = headers
         if bodyData != nil {
@@ -91,39 +107,117 @@ final class HTTPClient {
 
         request.allHTTPHeaderFields = combinedHeaders
 
-        do {
-            let (data, response) = try await session.data(for: request)
+        var attempt = 0
+        var currentDelay = initialRetryDelay
 
-            guard let httpResponse = response as? HTTPURLResponse else {
-                throw APIError.invalidResponse
-            }
-
-            guard 200..<300 ~= httpResponse.statusCode else {
-                throw APIError.requestFailed(httpResponse.statusCode)
-            }
-
-            if T.self == EmptyResponse.self {
-                return EmptyResponse() as! T
-            }
-
-            if data.isEmpty, let empty = EmptyResponse() as? T {
-                return empty
-            }
-
+        while attempt <= maxRetries {
             do {
-                return try decoder.decode(T.self, from: data)
+                let (data, response) = try await session.data(for: request)
+
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    throw APIError.invalidResponse
+                }
+
+                if httpResponse.statusCode == 304,
+                   method == .get,
+                   let cachedResponse = cache.cachedResponse(for: request) {
+                    return try decodeResponse(data: cachedResponse.data, responseType: T.self)
+                }
+
+                guard 200..<300 ~= httpResponse.statusCode else {
+                    throw APIError.requestFailed(httpResponse.statusCode)
+                }
+
+                if method == .get {
+                    let cached = CachedURLResponse(response: httpResponse, data: data)
+                    cache.storeCachedResponse(cached, for: request)
+                }
+
+                return try decodeResponse(data: data, responseType: T.self)
             } catch {
-                throw APIError.decodingFailed
+                let apiError = mapToAPIError(error)
+                if attempt < maxRetries && shouldRetry(apiError) {
+                    attempt += 1
+                    try await Task.sleep(nanoseconds: UInt64(currentDelay * 1_000_000_000))
+                    currentDelay *= 2
+                    continue
+                }
+
+                if method == .get,
+                   let cachedResponse = cache.cachedResponse(for: request),
+                   let httpResponse = cachedResponse.response as? HTTPURLResponse,
+                   200..<300 ~= httpResponse.statusCode {
+                    if let decoded = try? decodeResponse(data: cachedResponse.data, responseType: T.self) {
+                        return decoded
+                    }
+                }
+
+                throw apiError
             }
-        } catch let error as APIError {
-            throw error
-        } catch {
-            let nsError = error as NSError
-            if nsError.code == NSURLErrorTimedOut || nsError.code == NSURLErrorCannotFindHost || nsError.code == NSURLErrorCannotConnectToHost {
-                throw APIError.unreachable
-            }
-            throw APIError.invalidResponse
         }
+
+        throw APIError.invalidResponse
+    }
+
+    private func decodeResponse<T: Decodable>(data: Data, responseType: T.Type) throws -> T {
+        if T.self == EmptyResponse.self {
+            return EmptyResponse() as! T
+        }
+
+        if data.isEmpty, let empty = EmptyResponse() as? T {
+            return empty
+        }
+
+        do {
+            return try decoder.decode(T.self, from: data)
+        } catch {
+            throw APIError.decodingFailed
+        }
+    }
+
+    private func shouldRetry(_ error: APIError) -> Bool {
+        switch error {
+        case .unreachable:
+            return true
+        case .requestFailed(let status):
+            return (500...599).contains(status)
+        default:
+            return false
+        }
+    }
+
+    private func mapToAPIError(_ error: Error) -> APIError {
+        if let apiError = error as? APIError {
+            return apiError
+        }
+
+        if let urlError = error as? URLError {
+            switch urlError.code {
+            case .timedOut,
+                 .cannotFindHost,
+                 .cannotConnectToHost,
+                 .networkConnectionLost,
+                 .dnsLookupFailed,
+                 .notConnectedToInternet,
+                 .secureConnectionFailed:
+                return .unreachable
+            default:
+                return .invalidResponse
+            }
+        }
+
+        let nsError = error as NSError
+        if nsError.code == NSURLErrorTimedOut ||
+            nsError.code == NSURLErrorCannotFindHost ||
+            nsError.code == NSURLErrorCannotConnectToHost {
+            return .unreachable
+        }
+
+        return .invalidResponse
+    }
+
+    private static func makeDefaultCache() -> URLCache {
+        URLCache(memoryCapacity: 10 * 1024 * 1024, diskCapacity: 50 * 1024 * 1024)
     }
 }
 

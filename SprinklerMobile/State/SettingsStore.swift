@@ -11,13 +11,25 @@ final class SettingsStore: ObservableObject {
     @Published var serverVersion: String?
 
     private let defaults: UserDefaults
+    private let keychain: KeychainStoring
     private let targetKey = "sprinkler.target_address"
+    private let keychainTargetKey = "sprinkler.target_address_secure"
     private let lastSuccessKey = "sprinkler.last_success"
     private let versionKey = "sprinkler.server_version"
 
-    init(userDefaults: UserDefaults = .standard) {
+    init(userDefaults: UserDefaults = .standard, keychain: KeychainStoring = KeychainStorage()) {
         self.defaults = userDefaults
-        let savedAddress = userDefaults.string(forKey: targetKey) ?? ""
+        self.keychain = keychain
+
+        let keychainValue = keychain.string(forKey: keychainTargetKey)
+        let defaultsValue = userDefaults.string(forKey: targetKey)
+
+        if keychainValue == nil, let defaultsValue {
+            try? keychain.set(defaultsValue, forKey: keychainTargetKey)
+            userDefaults.removeObject(forKey: targetKey)
+        }
+
+        let savedAddress = keychainValue ?? defaultsValue ?? ""
         self.targetAddress = savedAddress
         if let url = try? Validators.normalizeBaseAddress(savedAddress) {
             self.resolvedBaseURL = url
@@ -30,7 +42,7 @@ final class SettingsStore: ObservableObject {
         let url = try Validators.normalizeBaseAddress(targetAddress)
         validationError = nil
         resolvedBaseURL = url
-        defaults.set(targetAddress, forKey: targetKey)
+        persistTargetAddress(targetAddress)
         return url
     }
 
@@ -54,5 +66,14 @@ final class SettingsStore: ObservableObject {
 
     func recordConnectionFailure(_ error: APIError) {
         lastFailure = error
+    }
+
+    private func persistTargetAddress(_ address: String) {
+        do {
+            try keychain.set(address, forKey: keychainTargetKey)
+            defaults.removeObject(forKey: targetKey)
+        } catch {
+            defaults.set(address, forKey: targetKey)
+        }
     }
 }
