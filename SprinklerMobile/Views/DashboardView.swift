@@ -1,10 +1,10 @@
 import SwiftUI
 
 struct DashboardView: View {
-    @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var store: SprinklerStore
 
     private var toastBinding: Binding<ToastState?> {
-        Binding(get: { appState.toast }, set: { appState.toast = $0 })
+        Binding(get: { store.toast }, set: { store.toast = $0 })
     }
 
     var body: some View {
@@ -13,14 +13,14 @@ struct DashboardView: View {
                 Section {
                     connectionBanner
                 }
-                PinsListView(pins: appState.pins,
-                             isLoading: appState.isRefreshing && appState.pins.isEmpty,
-                             onToggle: { pin, newValue in appState.togglePin(pin, to: newValue) },
-                             onReorder: appState.reorderPins)
+                PinsListView(pins: store.pins,
+                             isLoading: store.isRefreshing && store.pins.isEmpty,
+                             onToggle: { pin, newValue in store.togglePin(pin, to: newValue) },
+                             onReorder: store.reorderPins)
                 Section("Rain Delay") {
-                    RainCardView(rain: appState.rain,
-                                 isLoading: appState.isRefreshing && appState.rain == nil) { isActive, hours in
-                        appState.setRain(active: isActive, durationHours: hours)
+                    RainCardView(rain: store.rain,
+                                 isLoading: store.isRefreshing && store.rain == nil) { isActive, hours in
+                        store.setRain(active: isActive, durationHours: hours)
                     }
                     .listRowInsets(EdgeInsets())
                 }
@@ -29,7 +29,7 @@ struct DashboardView: View {
             .navigationTitle("Dashboard")
             .toolbar { EditButton() }
             .refreshable {
-                await appState.refresh()
+                await store.refresh()
             }
         }
         .toast(state: toastBinding)
@@ -37,22 +37,22 @@ struct DashboardView: View {
 
     private var connectionBanner: some View {
         HStack {
-            Image(systemName: appState.connectionStatus.isReachable ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                .foregroundStyle(appState.connectionStatus.isReachable ? .green : .orange)
+            Image(systemName: store.connectionStatus.isReachable ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                .foregroundStyle(store.connectionStatus.isReachable ? .green : .orange)
             VStack(alignment: .leading) {
-                Text(appState.connectionStatus.bannerText)
+                Text(store.connectionStatus.bannerText)
                     .font(.headline)
-                if let last = appState.settings.lastSuccessfulConnection {
+                if let last = store.lastSuccessfulConnection {
                     Text("Last Connected: \(last.formatted(date: .abbreviated, time: .shortened))")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                if let version = appState.settings.serverVersion {
+                if let version = store.serverVersion {
                     Text("Server Version: \(version)")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
-                if case let .unreachable(message) = appState.connectionStatus {
+                if case let .unreachable(message) = store.connectionStatus {
                     Text(message)
                         .font(.caption)
                         .foregroundStyle(.red)

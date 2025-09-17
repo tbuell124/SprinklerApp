@@ -2,7 +2,7 @@ import Foundation
 import Combine
 
 @MainActor
-final class AppState: ObservableObject {
+final class SprinklerStore: ObservableObject {
     enum ConnectionStatus: Equatable {
         case idle
         case connecting
@@ -24,42 +24,67 @@ final class AppState: ObservableObject {
         }
     }
 
+    // Remote resources
     @Published private(set) var pins: [PinDTO] = []
     @Published private(set) var schedules: [ScheduleDTO] = []
     @Published private(set) var scheduleGroups: [ScheduleGroupDTO] = []
     @Published private(set) var rain: RainDTO?
+
+    // Connection state
     @Published var connectionStatus: ConnectionStatus = .idle
     @Published var isRefreshing: Bool = false
     @Published var toast: ToastState?
 
-    let settings: SettingsStore
-    private let client: APIClient
-    private var cancellables: Set<AnyCancellable> = []
+    // Settings state
+    @Published var targetAddress: String
+    @Published var validationError: String?
+    @Published private(set) var resolvedBaseURL: URL?
+    @Published var isTestingConnection: Bool = false
+    @Published var lastSuccessfulConnection: Date?
+    @Published var lastFailure: APIError?
+    @Published var serverVersion: String?
 
-    init(settings: SettingsStore, client: APIClient = APIClient()) {
-        self.settings = settings
+    private let client: APIClient
+    private let defaults: UserDefaults
+    private let keychain: KeychainStoring
+
+    private let targetKey = "sprinkler.target_address"
+    private let keychainTargetKey = "sprinkler.target_address_secure"
+    private let lastSuccessKey = "sprinkler.last_success"
+    private let versionKey = "sprinkler.server_version"
+
+    init(userDefaults: UserDefaults = .standard,
+         keychain: KeychainStoring = KeychainStorage(),
+         client: APIClient = APIClient()) {
+        self.defaults = userDefaults
+        self.keychain = keychain
         self.client = client
 
-        if let base = settings.resolvedBaseURL {
-            Task { await client.updateBaseURL(base) }
-            if let last = settings.lastSuccessfulConnection {
-                connectionStatus = .connected(last)
-            } else {
-                connectionStatus = .idle
-            }
+        let keychainValue = keychain.string(forKey: keychainTargetKey)
+        let defaultsValue = userDefaults.string(forKey: targetKey)
+
+        if keychainValue == nil, let defaultsValue {
+            try? keychain.set(defaultsValue, forKey: keychainTargetKey)
+            userDefaults.removeObject(forKey: targetKey)
         }
 
-        settings.$resolvedBaseURL
-            .removeDuplicates { $0 == $1 }
-            .sink { [weak self] url in
-                guard let self else { return }
-                Task { await self.client.updateBaseURL(url) }
+        let savedAddress = keychainValue ?? defaultsValue ?? ""
+        self.targetAddress = savedAddress
+        self.validationError = nil
+        self.resolvedBaseURL = try? Validators.normalizeBaseAddress(savedAddress)
+        self.lastSuccessfulConnection = userDefaults.object(forKey: lastSuccessKey) as? Date
+        self.serverVersion = userDefaults.string(forKey: versionKey)
+
+        if let baseURL = resolvedBaseURL {
+            Task { await client.updateBaseURL(baseURL) }
+            if let lastSuccessfulConnection {
+                connectionStatus = .connected(lastSuccessfulConnection)
             }
-            .store(in: &cancellables)
+        }
     }
 
     func refresh() async {
-        guard settings.resolvedBaseURL != nil else { return }
+        guard resolvedBaseURL != nil else { return }
         isRefreshing = true
         connectionStatus = .connecting
         defer { isRefreshing = false }
@@ -67,34 +92,34 @@ final class AppState: ObservableObject {
             let status = try await client.fetchStatus()
             apply(status: status)
             connectionStatus = .connected(Date())
-            settings.recordConnectionSuccess(version: status.version)
+            recordConnectionSuccess(version: status.version)
         } catch let error as APIError {
             connectionStatus = .unreachable(error.localizedDescription)
-            settings.recordConnectionFailure(error)
+            recordConnectionFailure(error)
             showToast(message: error.localizedDescription, style: .error)
         } catch {
             let apiError = APIError.invalidResponse
             connectionStatus = .unreachable(apiError.localizedDescription)
-            settings.recordConnectionFailure(apiError)
+            recordConnectionFailure(apiError)
             showToast(message: apiError.localizedDescription, style: .error)
         }
     }
 
     func saveAndTestTarget() async {
-        settings.isTestingConnection = true
-        defer { settings.isTestingConnection = false }
+        isTestingConnection = true
+        defer { isTestingConnection = false }
         do {
-            let url = try settings.resolveCurrentAddress()
+            let url = try resolveCurrentAddress()
             await client.updateBaseURL(url)
             await refresh()
         } catch let error as APIError {
-            settings.setValidationError(error)
-            settings.recordConnectionFailure(error)
+            setValidationError(error)
+            recordConnectionFailure(error)
             connectionStatus = .unreachable(error.localizedDescription)
         } catch {
             let apiError = APIError.invalidURL
-            settings.setValidationError(apiError)
-            settings.recordConnectionFailure(apiError)
+            setValidationError(apiError)
+            recordConnectionFailure(apiError)
             connectionStatus = .unreachable(apiError.localizedDescription)
         }
     }
@@ -287,11 +312,52 @@ final class AppState: ObservableObject {
         }
     }
 
+    func resolveCurrentAddress() throws -> URL {
+        let url = try Validators.normalizeBaseAddress(targetAddress)
+        validationError = nil
+        if resolvedBaseURL != url {
+            resolvedBaseURL = url
+        }
+        persistTargetAddress(targetAddress)
+        return url
+    }
+
+    func setValidationError(_ error: APIError) {
+        if case let .validationFailed(message) = error {
+            validationError = message
+        } else {
+            validationError = error.localizedDescription
+        }
+    }
+
+    func recordConnectionSuccess(version: String?) {
+        lastSuccessfulConnection = Date()
+        lastFailure = nil
+        defaults.set(lastSuccessfulConnection, forKey: lastSuccessKey)
+        if let version {
+            serverVersion = version
+            defaults.set(version, forKey: versionKey)
+        }
+    }
+
+    func recordConnectionFailure(_ error: APIError) {
+        lastFailure = error
+    }
+
+    private func persistTargetAddress(_ address: String) {
+        do {
+            try keychain.set(address, forKey: keychainTargetKey)
+            defaults.removeObject(forKey: targetKey)
+        } catch {
+            defaults.set(address, forKey: targetKey)
+        }
+    }
+
     private func apply(status: StatusDTO) {
-        assignIfDifferent(\AppState.pins, to: status.pins ?? [])
-        assignIfDifferent(\AppState.schedules, to: status.schedules ?? [])
-        assignIfDifferent(\AppState.scheduleGroups, to: status.scheduleGroups ?? [])
-        assignIfDifferent(\AppState.rain, to: status.rain)
+        assignIfDifferent(\SprinklerStore.pins, to: status.pins ?? [])
+        assignIfDifferent(\SprinklerStore.schedules, to: status.schedules ?? [])
+        assignIfDifferent(\SprinklerStore.scheduleGroups, to: status.scheduleGroups ?? [])
+        assignIfDifferent(\SprinklerStore.rain, to: status.rain)
     }
 
     private func showToast(message: String, style: ToastState.Style) {
@@ -304,7 +370,7 @@ final class AppState: ObservableObject {
         }
     }
 
-    private func assignIfDifferent<Value: Equatable>(_ keyPath: ReferenceWritableKeyPath<AppState, Value>, to newValue: Value) {
+    private func assignIfDifferent<Value: Equatable>(_ keyPath: ReferenceWritableKeyPath<SprinklerStore, Value>, to newValue: Value) {
         if self[keyPath: keyPath] != newValue {
             self[keyPath: keyPath] = newValue
         }
