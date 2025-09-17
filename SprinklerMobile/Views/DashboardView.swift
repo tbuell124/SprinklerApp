@@ -14,10 +14,12 @@ struct DashboardView: View {
                     connectionBanner
                 }
                 PinsListView(pins: appState.pins,
+                             isLoading: appState.isRefreshing && appState.pins.isEmpty,
                              onToggle: { pin, newValue in appState.togglePin(pin, to: newValue) },
                              onReorder: appState.reorderPins)
                 Section("Rain Delay") {
-                    RainCardView(rain: appState.rain) { isActive, hours in
+                    RainCardView(rain: appState.rain,
+                                 isLoading: appState.isRefreshing && appState.rain == nil) { isActive, hours in
                         appState.setRain(active: isActive, durationHours: hours)
                     }
                     .listRowInsets(EdgeInsets())

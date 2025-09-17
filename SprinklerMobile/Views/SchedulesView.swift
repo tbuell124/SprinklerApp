@@ -6,6 +6,7 @@ struct SchedulesView: View {
     @State private var isPresentingEditor = false
     @State private var isAddingGroup = false
     @State private var newGroupName: String = ""
+    @State private var isLoadingGroups = false
 
     private var toastBinding: Binding<ToastState?> {
         Binding(get: { appState.toast }, set: { appState.toast = $0 })
@@ -15,7 +16,11 @@ struct SchedulesView: View {
         NavigationStack {
             List {
                 Section("Schedules") {
-                    if appState.schedules.isEmpty {
+                    if appState.isRefreshing && appState.schedules.isEmpty {
+                        ForEach(0..<4, id: \.self) { _ in
+                            ScheduleRowSkeleton()
+                        }
+                    } else if appState.schedules.isEmpty {
                         VStack(spacing: 8) {
                             Image(systemName: "calendar.badge.exclamationmark")
                                 .font(.largeTitle)
@@ -48,28 +53,34 @@ struct SchedulesView: View {
                     }
                 }
 
-                if !appState.scheduleGroups.isEmpty || isAddingGroup {
+                if isLoadingGroups || !appState.scheduleGroups.isEmpty || isAddingGroup {
                     Section("Groups") {
-                        ForEach(appState.scheduleGroups) { group in
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text(group.name ?? "Group")
-                                    .font(.headline)
-                                HStack {
-                                    Button("Select") {
-                                        appState.selectScheduleGroup(id: group.id)
-                                    }
-                                    Button("Add All") {
-                                        appState.addAllToGroup(id: group.id)
-                                    }
-                                    Button(role: .destructive) {
-                                        appState.deleteScheduleGroup(id: group.id)
-                                    } label: {
-                                        Label("Delete", systemImage: "trash")
-                                    }
-                                }
-                                .buttonStyle(.borderless)
+                        if isLoadingGroups {
+                            ForEach(0..<2, id: \.self) { _ in
+                                ScheduleGroupSkeleton()
                             }
-                            .padding(.vertical, 4)
+                        } else {
+                            ForEach(appState.scheduleGroups) { group in
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text(group.name ?? "Group")
+                                        .font(.headline)
+                                    LazyHStack(spacing: 12) {
+                                        Button("Select") {
+                                            appState.selectScheduleGroup(id: group.id)
+                                        }
+                                        Button("Add All") {
+                                            appState.addAllToGroup(id: group.id)
+                                        }
+                                        Button(role: .destructive) {
+                                            appState.deleteScheduleGroup(id: group.id)
+                                        } label: {
+                                            Label("Delete", systemImage: "trash")
+                                        }
+                                    }
+                                    .buttonStyle(.borderless)
+                                }
+                                .padding(.vertical, 4)
+                            }
                         }
                     }
                 }
@@ -120,6 +131,8 @@ struct SchedulesView: View {
                 }
             }
             .task {
+                isLoadingGroups = true
+                defer { isLoadingGroups = false }
                 await appState.loadScheduleGroups()
             }
         }

@@ -62,6 +62,7 @@ final class AppState: ObservableObject {
         guard settings.resolvedBaseURL != nil else { return }
         isRefreshing = true
         connectionStatus = .connecting
+        defer { isRefreshing = false }
         do {
             let status = try await client.fetchStatus()
             apply(status: status)
@@ -77,7 +78,6 @@ final class AppState: ObservableObject {
             settings.recordConnectionFailure(apiError)
             showToast(message: apiError.localizedDescription, style: .error)
         }
-        isRefreshing = false
     }
 
     func saveAndTestTarget() async {
@@ -288,10 +288,10 @@ final class AppState: ObservableObject {
     }
 
     private func apply(status: StatusDTO) {
-        pins = status.pins ?? []
-        schedules = status.schedules ?? []
-        scheduleGroups = status.scheduleGroups ?? []
-        rain = status.rain
+        assignIfDifferent(\AppState.pins, to: status.pins ?? [])
+        assignIfDifferent(\AppState.schedules, to: status.schedules ?? [])
+        assignIfDifferent(\AppState.scheduleGroups, to: status.scheduleGroups ?? [])
+        assignIfDifferent(\AppState.rain, to: status.rain)
     }
 
     private func showToast(message: String, style: ToastState.Style) {
@@ -301,6 +301,12 @@ final class AppState: ObservableObject {
             if toast?.message == message {
                 toast = nil
             }
+        }
+    }
+
+    private func assignIfDifferent<Value: Equatable>(_ keyPath: ReferenceWritableKeyPath<AppState, Value>, to newValue: Value) {
+        if self[keyPath: keyPath] != newValue {
+            self[keyPath: keyPath] = newValue
         }
     }
 }
