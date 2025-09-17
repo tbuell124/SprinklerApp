@@ -13,7 +13,8 @@ struct DashboardView: View {
                 Section {
                     connectionBanner
                 }
-                PinsListView(pins: store.pins,
+                PinsListView(pins: store.activePins,
+                             totalPinCount: store.pins.count,
                              isLoading: store.isRefreshing && store.pins.isEmpty,
                              onToggle: { pin, newValue in store.togglePin(pin, to: newValue) },
                              onReorder: store.reorderPins)

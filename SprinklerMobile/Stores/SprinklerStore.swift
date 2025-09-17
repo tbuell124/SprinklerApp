@@ -26,6 +26,9 @@ final class SprinklerStore: ObservableObject {
 
     // Remote resources
     @Published private(set) var pins: [PinDTO] = []
+    var activePins: [PinDTO] {
+        pins.filter { $0.isEnabled ?? true }
+    }
     @Published private(set) var schedules: [ScheduleDTO] = []
     @Published private(set) var scheduleGroups: [ScheduleGroupDTO] = []
     @Published private(set) var rain: RainDTO?
@@ -144,18 +147,43 @@ final class SprinklerStore: ObservableObject {
     }
 
     func renamePin(_ pin: PinDTO, newName: String) {
+        let normalizedName = normalizedName(from: newName)
         Task {
             do {
-                try await client.renamePin(pin.pin, name: newName)
+                let isEnabled = pins.first(where: { $0.id == pin.id })?.isEnabled ?? pin.isEnabled ?? true
+                try await client.updatePin(pin.pin, name: normalizedName, isEnabled: isEnabled)
                 await MainActor.run {
                     if let index = pins.firstIndex(where: { $0.id == pin.id }) {
-                        pins[index].name = newName
+                        pins[index].name = normalizedName
                     }
                     showToast(message: "Pin renamed", style: .success)
                 }
             } catch {
                 await MainActor.run {
                     showToast(message: "Rename failed", style: .error)
+                }
+            }
+        }
+    }
+
+    func setPinEnabled(_ pin: PinDTO, isEnabled: Bool) {
+        guard let index = pins.firstIndex(where: { $0.id == pin.id }) else { return }
+        let previous = pins[index]
+        pins[index].isEnabled = isEnabled
+
+        let normalizedName = normalizedName(from: pins[index].name)
+        Task {
+            do {
+                try await client.updatePin(pin.pin, name: normalizedName, isEnabled: isEnabled)
+                await MainActor.run {
+                    showToast(message: isEnabled ? "Pin enabled" : "Pin hidden", style: .success)
+                }
+            } catch {
+                await MainActor.run {
+                    if let revertIndex = pins.firstIndex(where: { $0.id == pin.id }) {
+                        pins[revertIndex] = previous
+                    }
+                    showToast(message: "Failed to update pin", style: .error)
                 }
             }
         }
@@ -230,12 +258,24 @@ final class SprinklerStore: ObservableObject {
     }
 
     func reorderPins(from offsets: IndexSet, to destination: Int) {
-        var reordered = pins
-        reordered.move(fromOffsets: offsets, toOffset: destination)
-        pins = reordered
+        let currentActive = activePins
+        var reorderedActive = currentActive
+        reorderedActive.move(fromOffsets: offsets, toOffset: destination)
+
+        var combined: [PinDTO] = []
+        var iterator = reorderedActive.makeIterator()
+        for pin in pins {
+            if pin.isEnabled ?? true, let next = iterator.next() {
+                combined.append(next)
+            } else {
+                combined.append(pin)
+            }
+        }
+
+        pins = combined
         Task {
             do {
-                let order = reordered.map { $0.pin }
+                let order = combined.map { $0.pin }
                 try await client.reorderPins(order)
             } catch {
                 await MainActor.run {
@@ -358,6 +398,16 @@ final class SprinklerStore: ObservableObject {
         assignIfDifferent(\SprinklerStore.schedules, to: status.schedules ?? [])
         assignIfDifferent(\SprinklerStore.scheduleGroups, to: status.scheduleGroups ?? [])
         assignIfDifferent(\SprinklerStore.rain, to: status.rain)
+    }
+
+    private func normalizedName(from name: String) -> String? {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private func normalizedName(from name: String?) -> String? {
+        guard let name else { return nil }
+        return normalizedName(from: name)
     }
 
     private func showToast(message: String, style: ToastState.Style) {
