@@ -7,6 +7,14 @@ struct PinsListView: View {
     let onToggle: (PinDTO, Bool) -> Void
     let onReorder: (IndexSet, Int) -> Void
 
+    private var enabledPins: [PinDTO] {
+        pins.filter { $0.isEnabled ?? true }
+    }
+
+    private var hiddenPins: [PinDTO] {
+        pins.filter { !($0.isEnabled ?? true) }
+    }
+
     init(pins: [PinDTO],
          totalPinCount: Int,
          isLoading: Bool = false,
@@ -54,10 +62,40 @@ struct PinsListView: View {
                     .padding(.vertical, 24)
                 }
             } else {
-                ForEach(pins) { pin in
-                    PinRowView(pin: pin, onToggle: onToggle)
+                if enabledPins.isEmpty {
+                    VStack(spacing: 8) {
+                        Image(systemName: "bolt.horizontal.circle")
+                            .font(.largeTitle)
+                            .foregroundStyle(.secondary)
+                        Text("No Enabled Pins")
+                            .font(.headline)
+                        Text("Enable pins from Settings to control them here.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 24)
+                } else {
+                    ForEach(enabledPins) { pin in
+                        PinRowView(pin: pin, onToggle: onToggle)
+                    }
+                    .onMove(perform: onReorder)
                 }
-                .onMove(perform: onReorder)
+
+                if !hiddenPins.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Hidden Pins")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(.top, enabledPins.isEmpty ? 0 : 12)
+
+                        ForEach(hiddenPins) { pin in
+                            PinRowView(pin: pin, onToggle: onToggle)
+                                .allowsHitTesting(false)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
             }
         }
     }

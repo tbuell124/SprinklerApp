@@ -23,6 +23,30 @@ actor APIClient {
         return try await httpClient.request(url: url)
     }
 
+    func updateRainSettings(zipCode: String, thresholdPercent: Int, isEnabled: Bool) async throws {
+        let url = try makeURL(path: "/api/rain/settings")
+        struct RainSettingsPayload: Encodable {
+            let zipCode: String
+            let thresholdPercent: Int
+            let isEnabled: Bool
+
+            enum CodingKeys: String, CodingKey {
+                case zipCode = "zip_code"
+                case thresholdPercent = "threshold_percent"
+                case isEnabled = "is_enabled"
+            }
+        }
+
+        let payload = RainSettingsPayload(zipCode: zipCode,
+                                          thresholdPercent: thresholdPercent,
+                                          isEnabled: isEnabled)
+        _ = try await httpClient.request(url: url,
+                                         method: .post,
+                                         body: payload,
+                                         fallbackToEmptyBody: false,
+                                         decode: EmptyResponse.self)
+    }
+
     func setRain(isActive: Bool, durationHours: Int?) async throws {
         let url = try makeURL(path: "/api/rain")
         struct RainPayload: Encodable {

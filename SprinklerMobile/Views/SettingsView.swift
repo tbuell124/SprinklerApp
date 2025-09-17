@@ -50,6 +50,44 @@ struct SettingsView: View {
                     }
                 }
 
+                Section("Rain Delay Automation") {
+                    TextField("ZIP Code", text: $store.rainSettingsZip)
+                        .keyboardType(.numberPad)
+                        .textInputAutocapitalization(.never)
+                        .disableAutocorrection(true)
+
+                    TextField("Threshold (%)", text: $store.rainSettingsThreshold)
+                        .keyboardType(.numberPad)
+                        .textInputAutocapitalization(.never)
+                        .disableAutocorrection(true)
+
+                    Toggle("Enable Automation", isOn: $store.rainSettingsIsEnabled)
+
+                    if let chance = store.rain?.chancePercent {
+                        LabeledContent("Current Chance of Rain") {
+                            Text("\(chance)%")
+                                .font(.subheadline)
+                        }
+                    } else {
+                        Text("Chance of rain will populate after saving a ZIP code.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Button {
+                        Task { await store.saveRainSettings() }
+                    } label: {
+                        if store.isSavingRainSettings {
+                            ProgressView()
+                                .frame(maxWidth: .infinity)
+                        } else {
+                            Text("Save Rain Settings")
+                                .frame(maxWidth: .infinity)
+                        }
+                    }
+                    .disabled(store.isSavingRainSettings)
+                }
+
                 Section("Connection") {
                     if let last = store.lastSuccessfulConnection {
                         LabeledContent("Last Success") {
