@@ -1,50 +1,49 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @EnvironmentObject private var settings: SettingsStore
-    @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var store: SprinklerStore
 
     private var toastBinding: Binding<ToastState?> {
-        Binding(get: { appState.toast }, set: { appState.toast = $0 })
+        Binding(get: { store.toast }, set: { store.toast = $0 })
     }
 
     var body: some View {
         NavigationStack {
             Form {
                 Section("Target IP") {
-                    TextField("http://192.168.1.50:5000", text: $settings.targetAddress)
+                    TextField("http://192.168.1.50:5000", text: $store.targetAddress)
                         .textInputAutocapitalization(.never)
                         .keyboardType(.URL)
                         .disableAutocorrection(true)
-                    if let error = settings.validationError {
+                    if let error = store.validationError {
                         Text(error)
                             .font(.caption)
                             .foregroundStyle(.red)
                     }
                     Button {
-                        Task { await appState.saveAndTestTarget() }
+                        Task { await store.saveAndTestTarget() }
                     } label: {
-                        if settings.isTestingConnection {
+                        if store.isTestingConnection {
                             ProgressView()
                         } else {
                             Text("Save & Test")
                         }
                     }
-                    .disabled(settings.targetAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || settings.isTestingConnection)
+                    .disabled(store.targetAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || store.isTestingConnection)
                 }
 
                 Section("Connection") {
-                    if let last = settings.lastSuccessfulConnection {
+                    if let last = store.lastSuccessfulConnection {
                         LabeledContent("Last Success") {
                             Text(last.formatted(date: .abbreviated, time: .shortened))
                         }
                     }
-                    if let version = settings.serverVersion {
+                    if let version = store.serverVersion {
                         LabeledContent("Server Version") {
                             Text(version)
                         }
                     }
-                    if let failure = settings.lastFailure {
+                    if let failure = store.lastFailure {
                         LabeledContent("Last Error") {
                             Text(failure.localizedDescription)
                                 .foregroundStyle(.red)

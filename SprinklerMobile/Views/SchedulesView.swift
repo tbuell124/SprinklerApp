@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct SchedulesView: View {
-    @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var store: SprinklerStore
     @State private var editingDraft: ScheduleDraft?
     @State private var isPresentingEditor = false
     @State private var isAddingGroup = false
@@ -9,18 +9,18 @@ struct SchedulesView: View {
     @State private var isLoadingGroups = false
 
     private var toastBinding: Binding<ToastState?> {
-        Binding(get: { appState.toast }, set: { appState.toast = $0 })
+        Binding(get: { store.toast }, set: { store.toast = $0 })
     }
 
     var body: some View {
         NavigationStack {
             List {
                 Section("Schedules") {
-                    if appState.isRefreshing && appState.schedules.isEmpty {
+                    if store.isRefreshing && store.schedules.isEmpty {
                         ForEach(0..<4, id: \.self) { _ in
                             ScheduleRowSkeleton()
                         }
-                    } else if appState.schedules.isEmpty {
+                    } else if store.schedules.isEmpty {
                         VStack(spacing: 8) {
                             Image(systemName: "calendar.badge.exclamationmark")
                                 .font(.largeTitle)
@@ -34,7 +34,7 @@ struct SchedulesView: View {
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.vertical, 24)
                     } else {
-                        ForEach(appState.schedules) { schedule in
+                        ForEach(store.schedules) { schedule in
                             Button {
                                 editingDraft = ScheduleDraft(schedule: schedule)
                                 isPresentingEditor = true
@@ -45,34 +45,34 @@ struct SchedulesView: View {
                         }
                         .onDelete { indexSet in
                             for index in indexSet {
-                                let schedule = appState.schedules[index]
-                                appState.deleteSchedule(schedule)
+                                let schedule = store.schedules[index]
+                                store.deleteSchedule(schedule)
                             }
                         }
-                        .onMove(perform: appState.reorderSchedules)
+                        .onMove(perform: store.reorderSchedules)
                     }
                 }
 
-                if isLoadingGroups || !appState.scheduleGroups.isEmpty || isAddingGroup {
+                if isLoadingGroups || !store.scheduleGroups.isEmpty || isAddingGroup {
                     Section("Groups") {
                         if isLoadingGroups {
                             ForEach(0..<2, id: \.self) { _ in
                                 ScheduleGroupSkeleton()
                             }
                         } else {
-                            ForEach(appState.scheduleGroups) { group in
+                            ForEach(store.scheduleGroups) { group in
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text(group.name ?? "Group")
                                         .font(.headline)
                                     LazyHStack(spacing: 12) {
                                         Button("Select") {
-                                            appState.selectScheduleGroup(id: group.id)
+                                            store.selectScheduleGroup(id: group.id)
                                         }
                                         Button("Add All") {
-                                            appState.addAllToGroup(id: group.id)
+                                            store.addAllToGroup(id: group.id)
                                         }
                                         Button(role: .destructive) {
-                                            appState.deleteScheduleGroup(id: group.id)
+                                            store.deleteScheduleGroup(id: group.id)
                                         } label: {
                                             Label("Delete", systemImage: "trash")
                                         }
@@ -91,7 +91,7 @@ struct SchedulesView: View {
                         Button("Create") {
                             let trimmed = newGroupName.trimmingCharacters(in: .whitespacesAndNewlines)
                             guard !trimmed.isEmpty else { return }
-                            appState.createScheduleGroup(name: trimmed)
+                            store.createScheduleGroup(name: trimmed)
                             newGroupName = ""
                             withAnimation { isAddingGroup = false }
                         }
@@ -126,14 +126,14 @@ struct SchedulesView: View {
             .sheet(isPresented: $isPresentingEditor, onDismiss: { editingDraft = nil }) {
                 if let draft = editingDraft {
                     ScheduleEditorView(draft: draft) { updated in
-                        appState.upsertSchedule(updated)
+                        store.upsertSchedule(updated)
                     }
                 }
             }
             .task {
                 isLoadingGroups = true
                 defer { isLoadingGroups = false }
-                await appState.loadScheduleGroups()
+                await store.loadScheduleGroups()
             }
         }
         .toast(state: toastBinding)

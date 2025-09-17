@@ -1,5 +1,11 @@
 import Foundation
 
+enum HTTPMethod: String {
+    case get = "GET"
+    case post = "POST"
+    case delete = "DELETE"
+}
+
 final class HTTPClient {
     private let session: URLSession
     private let sessionDelegate: URLSessionDelegate?

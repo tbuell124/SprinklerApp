@@ -2,26 +2,22 @@ import SwiftUI
 
 @main
 struct SprinklerMobileApp: App {
-    @StateObject private var settingsStore: SettingsStore
-    @StateObject private var appState: AppState
+    @StateObject private var store: SprinklerStore
 
     init() {
-        let settingsStore = SettingsStore()
-        _settingsStore = StateObject(wrappedValue: settingsStore)
-        _appState = StateObject(wrappedValue: AppState(settings: settingsStore))
+        _store = StateObject(wrappedValue: SprinklerStore())
     }
 
     var body: some Scene {
         WindowGroup {
             RootView()
-                .environmentObject(settingsStore)
-                .environmentObject(appState)
+                .environmentObject(store)
         }
     }
 }
 
 private struct RootView: View {
-    @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var store: SprinklerStore
 
     var body: some View {
         TabView {
@@ -39,7 +35,7 @@ private struct RootView: View {
                 }
         }
         .task {
-            await appState.refresh()
+            await store.refresh()
         }
     }
 }
