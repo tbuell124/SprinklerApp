@@ -183,3 +183,189 @@ Refer to the SwiftUI files inside `SprinklerMobile/Views`, `Stores`, `Data`, and
 - Keep Raspberry Pi OS patched by running `sudo apt update && sudo apt full-upgrade` at least monthly.
 
 With the Raspberry Pi service online and the SwiftUI app installed on an iOS device, you can monitor and control irrigation zones securely from anywhere on your local network.
+
+
+
+
+
+----------------
+You’re super close—the error tells us exactly what’s wrong:
+
+ModuleNotFoundError: No module named 'sprinkler'
+
+That happens because in /srv/sprinkler-controller you cloned SprinklerApp (the iOS client), not the Pi controller backend that exposes the FastAPI app sprinkler.app:app. The service instructions expect a Python package named sprinkler/ with an app.py inside. 
+
+README
+
+You’ve got two ways forward. Pick one.
+
+Option A (recommended): Use the proper backend repo
+
+If you have (or will have) a separate backend repo (often called something like sprinkler-controller) do this:
+
+# start clean in the controller directory
+cd /srv/sprinkler-controller
+rm -rf * .[^.]* 2>/dev/null || true
+
+# clone the backend here so /srv/sprinkler-controller contains a 'sprinkler' package
+git clone https://github.com/your-org/sprinkler-controller.git .
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip wheel
+# if the backend has a requirements file:
+pip install -r requirements.txt
+# otherwise:
+# pip install fastapi uvicorn[standard] python-dotenv RPi.GPIO pigpio
+
+# (optional) create your env file
+[ -f .env.example ] && cp .env.example .env || printf "SPRINKLER_API_PORT=5000\n" > .env
+
+# quick manual test
+uvicorn sprinkler.app:app --host 0.0.0.0 --port 5000
+
+
+If that runs without errors, hit it from another machine:
+
+curl http://<PI-IP>:5000/api/status
+
+
+Then create the systemd unit and enable it (see “Install the systemd service” below).
+
+Option B: Scaffold a minimal backend right now
+
+If you don’t have the backend repo handy yet, here’s a tiny working FastAPI app you can run immediately. It exposes /api/status and simple pin on/off routes; you can expand later.
+
+cd /srv/sprinkler-controller
+# keep your venv
+[ -d .venv ] || python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip wheel
+pip install fastapi uvicorn[standard] python-dotenv RPi.GPIO pigpio
+
+# create the package structure the uvicorn command expects
+mkdir -p sprinkler
+cat > sprinkler/__init__.py <<'PY'
+# empty
+PY
+
+cat > sprinkler/app.py <<'PY'
+from fastapi import FastAPI, HTTPException
+import os
+
+app = FastAPI(title="Sprinkler Controller API")
+
+# Try pigpio first (daemon-based), fall back to RPi.GPIO if desired
+try:
+    import pigpio
+    PI = pigpio.pi()  # connects to local pigpiod
+    if not PI.connected:
+        raise RuntimeError("pigpio daemon not connected")
+    USE_PIGPIO = True
+except Exception:
+    USE_PIGPIO = False
+    try:
+        import RPi.GPIO as GPIO
+        GPIO.setmode(GPIO.BCM)
+    except Exception:
+        GPIO = None
+
+DEFAULT_PINS = [int(p) for p in os.getenv("SPRINKLER_GPIO_PINS", "4,17,27,22,5,6,13,19").split(",")]
+
+def set_pin(pin: int, state: bool):
+    if USE_PIGPIO:
+        PI.set_mode(pin, pigpio.OUTPUT)
+        PI.write(pin, 1 if state else 0)
+    else:
+        if GPIO is None:
+            raise RuntimeError("No GPIO library available")
+        GPIO.setup(pin, GPIO.OUT)
+        GPIO.output(pin, GPIO.HIGH if state else GPIO.LOW)
+
+@app.get("/api/status")
+def status():
+    return {
+        "ok": True,
+        "pins": DEFAULT_PINS,
+        "backend": "pigpio" if USE_PIGPIO else ("RPi.GPIO" if GPIO else "none")
+    }
+
+@app.post("/api/pin/{pin}/on")
+def pin_on(pin: int):
+    if pin not in DEFAULT_PINS:
+        raise HTTPException(404, f"Pin {pin} not in allowed list")
+    set_pin(pin, True)
+    return {"pin": pin, "state": "on"}
+
+@app.post("/api/pin/{pin}/off")
+def pin_off(pin: int):
+    if pin not in DEFAULT_PINS:
+        raise HTTPException(404, f"Pin {pin} not in allowed list")
+    set_pin(pin, False)
+    return {"pin": pin, "state": "off"}
+PY
+
+
+Test it:
+
+source /srv/sprinkler-controller/.venv/bin/activate
+uvicorn sprinkler.app:app --host 0.0.0.0 --port 5000
+# In another shell/machine:
+curl http://<PI-IP>:5000/api/status
+
+
+If you get JSON back, you’re good.
+
+Install the systemd service (both options)
+# create the unit file
+sudo tee /etc/systemd/system/sprinkler.service >/dev/null <<'UNIT'
+[Unit]
+Description=Sprinkler Controller API
+After=network-online.target pigpiod.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/srv/sprinkler-controller
+EnvironmentFile=/srv/sprinkler-controller/.env
+ExecStart=/srv/sprinkler-controller/.venv/bin/uvicorn sprinkler.app:app --host 0.0.0.0 --port 5000
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+# reload and enable
+sudo systemctl daemon-reload
+sudo systemctl enable --now sprinkler.service
+sudo systemctl status sprinkler.service --no-pager
+
+
+If status shows active (running), your API is live on port 5000.
+
+Quick troubleshooting
+
+Still seeing ModuleNotFoundError: sprinkler?
+Ensure /srv/sprinkler-controller/sprinkler/app.py exists and you’re running uvicorn from /srv/sprinkler-controller (or that WorkingDirectory is set to it in the unit file).
+
+pigpio errors (daemon not connected)
+You already enabled it, but confirm:
+sudo systemctl status pigpiod
+If not running: sudo systemctl enable --now pigpiod
+
+Logs
+journalctl -u sprinkler.service -e -f
+
+Port check
+ss -tulpn | grep 5000
+
+Firewall (if you added one)
+Allow 5000/tcp on your LAN.
+
+Why this happened
+
+Per your README, the Pi service expects a backend with a sprinkler.app:app FastAPI entrypoint. You cloned the iOS client instead, so Python couldn’t import the sprinkler package. Fixing the repo location (Option A) or creating the expected package (Option B) resolves it. 
+
+README
+
+If you’d like, I can also tailor the .env and pin map for your specific relay board so the default endpoints line up with your zones.
