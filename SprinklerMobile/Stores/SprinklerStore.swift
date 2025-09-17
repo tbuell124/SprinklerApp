@@ -24,6 +24,11 @@ final class SprinklerStore: ObservableObject {
         }
     }
 
+    struct ConnectionDiagnostics: Equatable {
+        let timestamp: Date
+        let latency: TimeInterval
+    }
+
     // Remote resources
     @Published private(set) var pins: [PinDTO] = []
     var activePins: [PinDTO] {
@@ -43,6 +48,7 @@ final class SprinklerStore: ObservableObject {
     @Published var connectionStatus: ConnectionStatus = .idle
     @Published var isRefreshing: Bool = false
     @Published var toast: ToastState?
+    @Published private(set) var connectionDiagnostics: ConnectionDiagnostics?
 
     // Settings state
     @Published var targetAddress: String
@@ -98,9 +104,13 @@ final class SprinklerStore: ObservableObject {
         connectionStatus = .connecting
         defer { isRefreshing = false }
         do {
+            let start = Date()
             let status = try await client.fetchStatus()
+            let now = Date()
+            connectionDiagnostics = ConnectionDiagnostics(timestamp: now,
+                                                          latency: now.timeIntervalSince(start))
             apply(status: status)
-            connectionStatus = .connected(Date())
+            connectionStatus = .connected(now)
             recordConnectionSuccess(version: status.version)
         } catch let error as APIError {
             connectionStatus = .unreachable(error.localizedDescription)
@@ -463,6 +473,7 @@ final class SprinklerStore: ObservableObject {
 
     func recordConnectionFailure(_ error: APIError) {
         lastFailure = error
+        connectionDiagnostics = nil
     }
 
     private func persistTargetAddress(_ address: String) {

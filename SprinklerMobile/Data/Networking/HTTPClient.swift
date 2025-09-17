@@ -6,6 +6,8 @@ enum HTTPMethod: String {
     case delete = "DELETE"
 }
 
+/// Thin wrapper around `URLSession` that adds request retries, offline caching and
+/// better error diagnostics tailored to the sprinkler controller.
 final class HTTPClient {
     private let session: URLSession
     private let sessionDelegate: URLSessionDelegate?
@@ -62,56 +64,36 @@ final class HTTPClient {
         encoder.outputFormatting = [.prettyPrinted]
     }
 
-    func request<T: Decodable>(url: URL,
-                               method: HTTPMethod = .get,
-                               headers: [String: String] = [:],
-                               body: Encodable? = nil,
-                               fallbackToEmptyBody: Bool = false,
-                               decode type: T.Type = T.self) async throws -> T {
-        let initialBodyData: Data?
-        if let body {
-            initialBodyData = try encoder.encode(AnyEncodable(body))
-        } else {
-            initialBodyData = nil
-        }
+    func request<Response: Decodable>(_ endpoint: Endpoint<Response>, baseURL: URL) async throws -> Response {
+        let bodyData = try endpoint.body.map { try encoder.encode($0) }
 
         do {
-            return try await send(url: url,
-                                  method: method,
-                                  headers: headers,
-                                  bodyData: initialBodyData,
-                                  decode: T.self)
+            return try await send(endpoint: endpoint, baseURL: baseURL, bodyData: bodyData)
         } catch let error as APIError {
-            if fallbackToEmptyBody,
-               case let .requestFailed(code) = error,
-               (code == 400 || code == 415) {
-                return try await send(url: url,
-                                      method: method,
-                                      headers: headers,
-                                      bodyData: nil,
-                                      decode: T.self)
+            if endpoint.fallbackToEmptyBody,
+               case let .requestFailed(status, _) = error,
+               (status == 400 || status == 415) {
+                return try await send(endpoint: endpoint, baseURL: baseURL, bodyData: nil)
             }
             throw error
         }
     }
 
-    private func send<T: Decodable>(url: URL,
-                                    method: HTTPMethod,
-                                    headers: [String: String],
-                                    bodyData: Data?,
-                                    decode type: T.Type) async throws -> T {
-        var request = URLRequest(url: url)
-        request.httpMethod = method.rawValue
+    private func send<Response: Decodable>(endpoint: Endpoint<Response>,
+                                           baseURL: URL,
+                                           bodyData: Data?) async throws -> Response {
+        let requestURL = try makeURL(baseURL: baseURL, endpointPath: endpoint.path)
+        var request = URLRequest(url: requestURL)
+        request.httpMethod = endpoint.method.rawValue
         request.httpBody = bodyData
-        request.cachePolicy = method == .get ? .useProtocolCachePolicy : .reloadIgnoringLocalCacheData
+        request.cachePolicy = endpoint.cachePolicy ?? (endpoint.method == .get ? .useProtocolCachePolicy : .reloadIgnoringLocalCacheData)
 
-        var combinedHeaders = headers
+        var headers = endpoint.headers
         if bodyData != nil {
-            combinedHeaders["Content-Type"] = combinedHeaders["Content-Type"] ?? "application/json"
+            headers["Content-Type"] = headers["Content-Type"] ?? "application/json"
         }
-        combinedHeaders["Accept"] = combinedHeaders["Accept"] ?? "application/json"
-
-        request.allHTTPHeaderFields = combinedHeaders
+        headers["Accept"] = headers["Accept"] ?? "application/json"
+        request.allHTTPHeaderFields = headers
 
         var attempt = 0
         var currentDelay = initialRetryDelay
@@ -125,21 +107,22 @@ final class HTTPClient {
                 }
 
                 if httpResponse.statusCode == 304,
-                   method == .get,
+                   endpoint.method == .get,
                    let cachedResponse = cache.cachedResponse(for: request) {
-                    return try decodeResponse(data: cachedResponse.data, responseType: T.self)
+                    return try decodeResponse(data: cachedResponse.data, responseType: Response.self)
                 }
 
                 guard 200..<300 ~= httpResponse.statusCode else {
-                    throw APIError.requestFailed(httpResponse.statusCode)
+                    let message = extractProblemDescription(from: data)
+                    throw APIError.requestFailed(status: httpResponse.statusCode, message: message)
                 }
 
-                if method == .get {
+                if endpoint.method == .get {
                     let cached = CachedURLResponse(response: httpResponse, data: data)
                     cache.storeCachedResponse(cached, for: request)
                 }
 
-                return try decodeResponse(data: data, responseType: T.self)
+                return try decodeResponse(data: data, responseType: Response.self)
             } catch {
                 let apiError = mapToAPIError(error)
                 if attempt < maxRetries && shouldRetry(apiError) {
@@ -149,11 +132,11 @@ final class HTTPClient {
                     continue
                 }
 
-                if method == .get,
+                if endpoint.method == .get,
                    let cachedResponse = cache.cachedResponse(for: request),
                    let httpResponse = cachedResponse.response as? HTTPURLResponse,
                    200..<300 ~= httpResponse.statusCode {
-                    if let decoded = try? decodeResponse(data: cachedResponse.data, responseType: T.self) {
+                    if let decoded = try? decodeResponse(data: cachedResponse.data, responseType: Response.self) {
                         return decoded
                     }
                 }
@@ -165,17 +148,18 @@ final class HTTPClient {
         throw APIError.invalidResponse
     }
 
-    private func decodeResponse<T: Decodable>(data: Data, responseType: T.Type) throws -> T {
-        if T.self == EmptyResponse.self {
-            return EmptyResponse() as! T
+    private func decodeResponse<Response: Decodable>(data: Data, responseType: Response.Type) throws -> Response {
+        if Response.self == EmptyResponse.self {
+            return EmptyResponse() as! Response
         }
 
-        if data.isEmpty, let empty = EmptyResponse() as? T {
+        let trimmed = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if data.isEmpty || trimmed.isEmpty, let empty = EmptyResponse() as? Response {
             return empty
         }
 
         do {
-            return try decoder.decode(T.self, from: data)
+            return try decoder.decode(Response.self, from: data)
         } catch {
             throw APIError.decodingFailed
         }
@@ -185,7 +169,7 @@ final class HTTPClient {
         switch error {
         case .unreachable:
             return true
-        case .requestFailed(let status):
+        case .requestFailed(let status, _):
             return (500...599).contains(status)
         default:
             return false
@@ -222,21 +206,51 @@ final class HTTPClient {
         return .invalidResponse
     }
 
+    private func extractProblemDescription(from data: Data) -> String? {
+        guard !data.isEmpty else { return nil }
+
+        if let problem = try? decoder.decode(ProblemDetails.self, from: data),
+           let message = problem.displayMessage {
+            return message
+        }
+
+        if let string = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !string.isEmpty {
+            return string
+        }
+
+        return nil
+    }
+
+    private func makeURL(baseURL: URL, endpointPath: String) throws -> URL {
+        guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
+            throw APIError.invalidURL
+        }
+        components.percentEncodedPath = joinedPath(basePath: components.percentEncodedPath, endpointPath: endpointPath)
+        guard let url = components.url else { throw APIError.invalidURL }
+        return url
+    }
+
+    private func joinedPath(basePath: String, endpointPath: String) -> String {
+        let trimmedBase = basePath.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let trimmedEndpoint = endpointPath.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let segments = [trimmedBase, trimmedEndpoint].filter { !$0.isEmpty }
+        guard !segments.isEmpty else { return "/" }
+        return "/" + segments.joined(separator: "/")
+    }
+
     private static func makeDefaultCache() -> URLCache {
         URLCache(memoryCapacity: 10 * 1024 * 1024, diskCapacity: 50 * 1024 * 1024)
     }
 }
 
-private struct AnyEncodable: Encodable {
-    private let encodeClosure: (Encoder) throws -> Void
+private struct ProblemDetails: Decodable {
+    let message: String?
+    let detail: String?
+    let error: String?
+    let description: String?
 
-    init(_ encodable: Encodable) {
-        self.encodeClosure = { encoder in
-            try encodable.encode(to: encoder)
-        }
-    }
-
-    func encode(to encoder: Encoder) throws {
-        try encodeClosure(encoder)
+    var displayMessage: String? {
+        message ?? detail ?? error ?? description
     }
 }
