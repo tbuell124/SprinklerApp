@@ -39,9 +39,13 @@ struct SettingsView: View {
                     } else {
                         ForEach(Array(store.pins.enumerated()), id: \.element.id) { index, pin in
                             PinSettingsRow(pin: pin,
-                                           position: index + 1) { updatedPin, newName in
-                                store.renamePin(updatedPin, newName: newName)
-                            }
+                                           position: index + 1,
+                                           onRename: { updatedPin, newName in
+                                               store.renamePin(updatedPin, newName: newName)
+                                           },
+                                           onToggleActive: { updatedPin, isActive in
+                                               store.setPinEnabled(updatedPin, isEnabled: isActive)
+                                           })
                         }
                     }
                 }
@@ -81,15 +85,22 @@ private struct PinSettingsRow: View {
     let pin: PinDTO
     let position: Int
     let onRename: (PinDTO, String) -> Void
+    let onToggleActive: (PinDTO, Bool) -> Void
 
     @State private var name: String
+    @State private var isEnabled: Bool
     @FocusState private var isFocused: Bool
 
-    init(pin: PinDTO, position: Int, onRename: @escaping (PinDTO, String) -> Void) {
+    init(pin: PinDTO,
+         position: Int,
+         onRename: @escaping (PinDTO, String) -> Void,
+         onToggleActive: @escaping (PinDTO, Bool) -> Void) {
         self.pin = pin
         self.position = position
         self.onRename = onRename
+        self.onToggleActive = onToggleActive
         _name = State(initialValue: pin.name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "")
+        _isEnabled = State(initialValue: pin.isEnabled ?? true)
     }
 
     var body: some View {
@@ -103,6 +114,11 @@ private struct PinSettingsRow: View {
                     .foregroundStyle(.secondary)
             }
 
+            Toggle("Show on Dashboard", isOn: $isEnabled)
+                .onChange(of: isEnabled) { newValue in
+                    onToggleActive(pin, newValue)
+                }
+
             TextField("Name", text: $name, prompt: Text(pin.displayName))
                 .textInputAutocapitalization(.words)
                 .disableAutocorrection(true)
@@ -114,6 +130,10 @@ private struct PinSettingsRow: View {
             let trimmed = updatedPin.name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             if trimmed != name {
                 name = trimmed
+            }
+            let enabled = updatedPin.isEnabled ?? true
+            if enabled != isEnabled {
+                isEnabled = enabled
             }
         }
         .onChange(of: isFocused) { focused in

@@ -52,10 +52,29 @@ actor APIClient {
                                          decode: EmptyResponse.self)
     }
 
-    func renamePin(_ pin: Int, name: String) async throws {
-        let url = try makeURL(path: "/api/pin/\(pin)/name")
-        struct RenamePayload: Encodable { let name: String }
-        let payload = RenamePayload(name: name)
+    func updatePin(_ pin: Int, name: String?, isEnabled: Bool) async throws {
+        let url = try makeURL(path: "/api/pin/\(pin)")
+        struct PinUpdatePayload: Encodable {
+            let name: String?
+            let isEnabled: Bool
+
+            enum CodingKeys: String, CodingKey {
+                case name
+                case isEnabled = "is_enabled"
+            }
+
+            func encode(to encoder: Encoder) throws {
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                if let name {
+                    try container.encode(name, forKey: .name)
+                } else {
+                    try container.encodeNil(forKey: .name)
+                }
+                try container.encode(isEnabled, forKey: .isEnabled)
+            }
+        }
+
+        let payload = PinUpdatePayload(name: name, isEnabled: isEnabled)
         _ = try await httpClient.request(url: url,
                                          method: .post,
                                          body: payload,
