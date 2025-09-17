@@ -49,10 +49,20 @@ struct DashboardView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                if let diagnostics = store.connectionDiagnostics {
+                    Text("Latency: \(diagnostics.latency.formatted(.number.precision(.fractionLength(2)))) s")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
                 if let version = store.serverVersion {
                     Text("Server Version: \(version)")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
+                }
+                if let failure = store.lastFailure, store.connectionStatus.isReachable {
+                    Text("Last error: \(failure.localizedDescription)")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
                 }
                 if case let .unreachable(message) = store.connectionStatus {
                     Text(message)

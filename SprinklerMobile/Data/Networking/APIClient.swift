@@ -1,0 +1,161 @@
+import Foundation
+
+/// Concurrency-safe gateway to the sprinkler controller REST API.
+///
+/// The client keeps track of the currently selected base URL and exposes high-level
+/// domain operations that the store consumes. All low-level request work is delegated to
+/// `HTTPClient`.
+actor APIClient {
+    private var baseURL: URL?
+    private let httpClient: HTTPClient
+
+    init(baseURL: URL? = nil, httpClient: HTTPClient = HTTPClient()) {
+        self.baseURL = baseURL
+        self.httpClient = httpClient
+    }
+
+    func updateBaseURL(_ url: URL?) {
+        self.baseURL = url
+    }
+
+    func fetchStatus() async throws -> StatusDTO {
+        try await perform(.init(path: "/api/status"))
+    }
+
+    func fetchRain() async throws -> RainDTO {
+        try await perform(.init(path: "/api/rain"))
+    }
+
+    func updateRainSettings(zipCode: String, thresholdPercent: Int, isEnabled: Bool) async throws {
+        struct RainSettingsPayload: Encodable {
+            let zipCode: String
+            let thresholdPercent: Int
+            let isEnabled: Bool
+
+            enum CodingKeys: String, CodingKey {
+                case zipCode = "zip_code"
+                case thresholdPercent = "threshold_percent"
+                case isEnabled = "is_enabled"
+            }
+        }
+
+        let payload = RainSettingsPayload(zipCode: zipCode,
+                                          thresholdPercent: thresholdPercent,
+                                          isEnabled: isEnabled)
+        let endpoint = Endpoint<EmptyResponse>(path: "/api/rain/settings",
+                                               method: .post,
+                                               body: AnyEncodable(payload))
+        _ = try await perform(endpoint)
+    }
+
+    func setRain(isActive: Bool, durationHours: Int?) async throws {
+        struct RainPayload: Encodable {
+            let active: Bool
+            let hours: Int?
+        }
+
+        let payload = RainPayload(active: isActive, hours: durationHours)
+        let endpoint = Endpoint<EmptyResponse>(path: "/api/rain",
+                                               method: .post,
+                                               body: AnyEncodable(payload),
+                                               fallbackToEmptyBody: true)
+        _ = try await perform(endpoint)
+    }
+
+    func setPin(_ pin: Int, on: Bool) async throws {
+        let endpoint = Endpoint<EmptyResponse>(path: "/api/pin/\(pin)/\(on ? "on" : "off")",
+                                               method: .post,
+                                               fallbackToEmptyBody: true)
+        _ = try await perform(endpoint)
+    }
+
+    func updatePin(_ pin: Int, name: String?, isEnabled: Bool) async throws {
+        struct PinUpdatePayload: Encodable {
+            let name: String?
+            let isEnabled: Bool
+
+            enum CodingKeys: String, CodingKey {
+                case name
+                case isEnabled = "is_enabled"
+            }
+        }
+
+        let payload = PinUpdatePayload(name: name, isEnabled: isEnabled)
+        let endpoint = Endpoint<EmptyResponse>(path: "/api/pin/\(pin)",
+                                               method: .post,
+                                               body: AnyEncodable(payload))
+        _ = try await perform(endpoint)
+    }
+
+    func reorderPins(_ pinOrder: [Int]) async throws {
+        let endpoint = Endpoint<EmptyResponse>(path: "/api/pins/reorder",
+                                               method: .post,
+                                               body: AnyEncodable(pinOrder))
+        _ = try await perform(endpoint)
+    }
+
+    func createSchedule(_ schedule: ScheduleWritePayload) async throws {
+        let endpoint = Endpoint<EmptyResponse>(path: "/api/schedule",
+                                               method: .post,
+                                               body: AnyEncodable(schedule))
+        _ = try await perform(endpoint)
+    }
+
+    func updateSchedule(id: String, schedule: ScheduleWritePayload) async throws {
+        let endpoint = Endpoint<EmptyResponse>(path: "/api/schedule/\(id)",
+                                               method: .post,
+                                               body: AnyEncodable(schedule))
+        _ = try await perform(endpoint)
+    }
+
+    func deleteSchedule(id: String) async throws {
+        let endpoint = Endpoint<EmptyResponse>(path: "/api/schedule/\(id)",
+                                               method: .delete)
+        _ = try await perform(endpoint)
+    }
+
+    func reorderSchedules(_ scheduleIds: [String]) async throws {
+        let endpoint = Endpoint<EmptyResponse>(path: "/api/schedules/reorder",
+                                               method: .post,
+                                               body: AnyEncodable(scheduleIds))
+        _ = try await perform(endpoint)
+    }
+
+    func fetchScheduleGroups() async throws -> [ScheduleGroupDTO] {
+        try await perform(.init(path: "/api/schedule-groups"))
+    }
+
+    func createScheduleGroup(name: String) async throws {
+        struct GroupPayload: Encodable { let name: String }
+        let endpoint = Endpoint<EmptyResponse>(path: "/api/schedule-groups",
+                                               method: .post,
+                                               body: AnyEncodable(GroupPayload(name: name)))
+        _ = try await perform(endpoint)
+    }
+
+    func selectScheduleGroup(id: String) async throws {
+        struct SelectPayload: Encodable { let id: String }
+        let endpoint = Endpoint<EmptyResponse>(path: "/api/schedule-groups/select",
+                                               method: .post,
+                                               body: AnyEncodable(SelectPayload(id: id)))
+        _ = try await perform(endpoint)
+    }
+
+    func addAllToGroup(id: String) async throws {
+        let endpoint = Endpoint<EmptyResponse>(path: "/api/schedule-groups/\(id)/add-all",
+                                               method: .post,
+                                               fallbackToEmptyBody: true)
+        _ = try await perform(endpoint)
+    }
+
+    func deleteScheduleGroup(id: String) async throws {
+        let endpoint = Endpoint<EmptyResponse>(path: "/api/schedule-groups/\(id)",
+                                               method: .delete)
+        _ = try await perform(endpoint)
+    }
+
+    private func perform<Response>(_ endpoint: Endpoint<Response>) async throws -> Response {
+        guard let baseURL else { throw APIError.invalidURL }
+        return try await httpClient.request(endpoint, baseURL: baseURL)
+    }
+}
