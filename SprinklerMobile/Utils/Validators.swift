@@ -7,23 +7,32 @@ enum Validators {
             throw APIError.validationFailed("Please enter the sprinkler controller address.")
         }
 
-        guard var components = URLComponents(string: trimmed) else {
-            throw APIError.validationFailed("The address could not be parsed.")
+        let components = URLComponents(string: trimmed)
+        let normalizedComponents: URLComponents
+
+        if let components, let scheme = components.scheme, !scheme.isEmpty {
+            normalizedComponents = components
+        } else {
+            guard let fallbackComponents = URLComponents(string: "http://\(trimmed)") else {
+                throw APIError.validationFailed("The address could not be parsed.")
+            }
+            normalizedComponents = fallbackComponents
         }
 
-        guard let scheme = components.scheme?.lowercased(), ["http", "https"].contains(scheme) else {
+        guard let scheme = normalizedComponents.scheme?.lowercased(), ["http", "https"].contains(scheme) else {
             throw APIError.validationFailed("The address must start with http:// or https://.")
         }
 
-        guard components.host != nil else {
+        guard normalizedComponents.host != nil else {
             throw APIError.validationFailed("Please include the host or IP address.")
         }
 
-        if components.path.isEmpty {
-            components.path = ""
+        var mutableComponents = normalizedComponents
+        if mutableComponents.path.isEmpty {
+            mutableComponents.path = ""
         }
 
-        guard let url = components.url else {
+        guard let url = mutableComponents.url else {
             throw APIError.validationFailed("The address is not valid.")
         }
 
