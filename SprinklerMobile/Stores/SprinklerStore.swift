@@ -32,6 +32,12 @@ final class SprinklerStore: ObservableObject {
     @Published private(set) var schedules: [ScheduleDTO] = []
     @Published private(set) var scheduleGroups: [ScheduleGroupDTO] = []
     @Published private(set) var rain: RainDTO?
+    @Published private(set) var rainAutomationEnabled: Bool = false
+    @Published var rainSettingsZip: String = ""
+    @Published var rainSettingsThreshold: String = ""
+    @Published var rainSettingsIsEnabled: Bool = false
+    @Published var isSavingRainSettings: Bool = false
+    @Published var isUpdatingRainAutomation: Bool = false
 
     // Connection state
     @Published var connectionStatus: ConnectionStatus = .idle
@@ -202,6 +208,71 @@ final class SprinklerStore: ObservableObject {
                     showToast(message: "Failed to update rain delay", style: .error)
                 }
             }
+        }
+    }
+
+    func setRainAutomationEnabled(_ isEnabled: Bool) {
+        guard let zipCode = resolvedAutomationZip(),
+              let threshold = resolvedAutomationThreshold() else {
+            showToast(message: "Configure rain settings first", style: .error)
+            return
+        }
+
+        let previousValue = rainAutomationEnabled
+        rainAutomationEnabled = isEnabled
+        rainSettingsIsEnabled = isEnabled
+        isUpdatingRainAutomation = true
+
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await client.updateRainSettings(zipCode: zipCode,
+                                                    thresholdPercent: threshold,
+                                                    isEnabled: isEnabled)
+                await refresh()
+                await MainActor.run {
+                    showToast(message: isEnabled ? "Rain delay automation enabled" : "Rain delay automation disabled",
+                              style: .success)
+                }
+            } catch {
+                await MainActor.run {
+                    rainAutomationEnabled = previousValue
+                    rainSettingsIsEnabled = previousValue
+                    showToast(message: "Failed to update automation", style: .error)
+                }
+            }
+            await MainActor.run {
+                isUpdatingRainAutomation = false
+            }
+        }
+    }
+
+    func saveRainSettings() async {
+        let trimmedZip = rainSettingsZip.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let normalizedZip = normalizeZipCode(trimmedZip) else {
+            showToast(message: "Enter a valid ZIP code", style: .error)
+            return
+        }
+
+        guard let threshold = parseThresholdPercent(rainSettingsThreshold) else {
+            showToast(message: "Threshold must be between 0 and 100", style: .error)
+            return
+        }
+
+        rainSettingsZip = normalizedZip
+        rainSettingsThreshold = String(threshold)
+        isSavingRainSettings = true
+        defer { isSavingRainSettings = false }
+
+        do {
+            try await client.updateRainSettings(zipCode: normalizedZip,
+                                                thresholdPercent: threshold,
+                                                isEnabled: rainSettingsIsEnabled)
+            rainAutomationEnabled = rainSettingsIsEnabled
+            await refresh()
+            showToast(message: "Rain settings saved", style: .success)
+        } catch {
+            showToast(message: "Failed to save rain settings", style: .error)
         }
     }
 
@@ -398,6 +469,7 @@ final class SprinklerStore: ObservableObject {
         assignIfDifferent(\SprinklerStore.schedules, to: status.schedules ?? [])
         assignIfDifferent(\SprinklerStore.scheduleGroups, to: status.scheduleGroups ?? [])
         assignIfDifferent(\SprinklerStore.rain, to: status.rain)
+        syncRainSettings(from: status.rain)
     }
 
     private func normalizedName(from name: String) -> String? {
@@ -408,6 +480,56 @@ final class SprinklerStore: ObservableObject {
     private func normalizedName(from name: String?) -> String? {
         guard let name else { return nil }
         return normalizedName(from: name)
+    }
+
+    private func syncRainSettings(from rain: RainDTO?) {
+        let newZip = rain?.zipCode ?? ""
+        if rainSettingsZip != newZip {
+            rainSettingsZip = newZip
+        }
+
+        let newThreshold = rain?.thresholdPercent.map(String.init) ?? ""
+        if rainSettingsThreshold != newThreshold {
+            rainSettingsThreshold = newThreshold
+        }
+
+        let automationEnabled = rain?.automationEnabled ?? false
+        if rainSettingsIsEnabled != automationEnabled {
+            rainSettingsIsEnabled = automationEnabled
+        }
+        if rainAutomationEnabled != automationEnabled {
+            rainAutomationEnabled = automationEnabled
+        }
+    }
+
+    private func resolvedAutomationZip() -> String? {
+        if let zip = rain?.zipCode, normalizeZipCode(zip) != nil {
+            return normalizeZipCode(zip)
+        }
+        return normalizeZipCode(rainSettingsZip)
+    }
+
+    private func resolvedAutomationThreshold() -> Int? {
+        if let threshold = rain?.thresholdPercent, (0...100).contains(threshold) {
+            return threshold
+        }
+        return parseThresholdPercent(rainSettingsThreshold)
+    }
+
+    private func normalizeZipCode(_ value: String) -> String? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count == 5, trimmed.allSatisfy({ $0.isNumber }) else {
+            return nil
+        }
+        return trimmed
+    }
+
+    private func parseThresholdPercent(_ value: String) -> Int? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let threshold = Int(trimmed), (0...100).contains(threshold) else {
+            return nil
+        }
+        return threshold
     }
 
     private func showToast(message: String, style: ToastState.Style) {

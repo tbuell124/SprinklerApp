@@ -13,16 +13,17 @@ struct DashboardView: View {
                 Section {
                     connectionBanner
                 }
-                PinsListView(pins: store.activePins,
+                PinsListView(pins: store.pins,
                              totalPinCount: store.pins.count,
                              isLoading: store.isRefreshing && store.pins.isEmpty,
                              onToggle: { pin, newValue in store.togglePin(pin, to: newValue) },
                              onReorder: store.reorderPins)
                 Section("Rain Delay") {
                     RainCardView(rain: store.rain,
-                                 isLoading: store.isRefreshing && store.rain == nil) { isActive, hours in
-                        store.setRain(active: isActive, durationHours: hours)
-                    }
+                                 isLoading: store.isRefreshing && store.rain == nil,
+                                 isAutomationEnabled: store.rainAutomationEnabled,
+                                 isUpdatingAutomation: store.isUpdatingRainAutomation,
+                                 onToggleAutomation: { store.setRainAutomationEnabled($0) })
                     .listRowInsets(EdgeInsets())
                 }
             }

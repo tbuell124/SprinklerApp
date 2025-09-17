@@ -3,16 +3,21 @@ import SwiftUI
 struct RainCardView: View {
     let rain: RainDTO?
     let isLoading: Bool
-    let onSubmit: (Bool, Int?) -> Void
+    let isAutomationEnabled: Bool
+    let isUpdatingAutomation: Bool
+    let onToggleAutomation: (Bool) -> Void
 
-    init(rain: RainDTO?, isLoading: Bool = false, onSubmit: @escaping (Bool, Int?) -> Void) {
+    init(rain: RainDTO?,
+         isLoading: Bool = false,
+         isAutomationEnabled: Bool,
+         isUpdatingAutomation: Bool,
+         onToggleAutomation: @escaping (Bool) -> Void) {
         self.rain = rain
         self.isLoading = isLoading
-        self.onSubmit = onSubmit
+        self.isAutomationEnabled = isAutomationEnabled
+        self.isUpdatingAutomation = isUpdatingAutomation
+        self.onToggleAutomation = onToggleAutomation
     }
-
-    @State private var isActive: Bool = false
-    @State private var durationHours: Int = 24
 
     var body: some View {
         Group {
@@ -20,53 +25,127 @@ struct RainCardView: View {
                 RainCardSkeleton()
             } else {
                 VStack(alignment: .leading, spacing: 12) {
-                    Toggle(isOn: $isActive) {
-                        Text("Rain Delay")
-                            .font(.headline)
-                    }
-                    .toggleStyle(.switch)
+                    HStack(alignment: .center, spacing: 12) {
+                        Toggle(isOn: automationBinding) {
+                            Text("Automatic Rain Delay")
+                                .font(.headline)
+                        }
+                        .toggleStyle(.switch)
+                        .disabled(!canToggleAutomation)
 
-                    Stepper(value: $durationHours, in: 1...72, step: 1) {
-                        Text("Duration: \(durationHours)h")
+                        if isUpdatingAutomation {
+                            ProgressView()
+                                .progressViewStyle(.circular)
+                        }
+                    }
+
+                    Label {
+                        Text(rainStatusText)
                             .font(.subheadline)
+                    } icon: {
+                        Image(systemName: rain?.isActive == true ? "cloud.rain.fill" : "cloud")
                     }
-                    .disabled(!isActive)
+                    .foregroundStyle(rainStatusColor)
 
-                    if let endsAt = rain?.endsAt {
+                    if let endsAt = rain?.endsAt, rain?.isActive == true {
                         Text("Ends: \(endsAt.formatted(date: .abbreviated, time: .shortened))")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
 
-                    Button {
-                        let duration = isActive ? durationHours : nil
-                        onSubmit(isActive, duration)
-                    } label: {
-                        Text("Apply")
-                            .frame(maxWidth: .infinity)
+                    Divider()
+
+                    LabeledContent("Chance of Rain") {
+                        Text(chanceText)
+                            .font(.subheadline)
+                            .foregroundStyle(chanceColor)
                     }
-                    .buttonStyle(.borderedProminent)
+
+                    LabeledContent("Threshold") {
+                        Text(thresholdText)
+                            .font(.subheadline)
+                    }
+
+                    if let zipText = zipText {
+                        LabeledContent("ZIP Code") {
+                            Text(zipText)
+                                .font(.subheadline)
+                        }
+                    }
+
+                    if !canToggleAutomation {
+                        Text("Configure ZIP code and threshold in Settings to enable automation.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else if !isAutomationEnabled {
+                        Text("Automation is disabled. The controller will not schedule rain delays automatically.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 .padding()
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .background(RoundedRectangle(cornerRadius: 12).fill(Color(.secondarySystemBackground)))
             }
         }
-        .onChange(of: rain, perform: sync(with:))
-        .onChange(of: isLoading) { newValue in
-            if !newValue {
-                sync(with: rain)
-            }
-        }
-        .onAppear {
-            sync(with: rain)
-        }
     }
 
-    private func sync(with rain: RainDTO?) {
-        guard !isLoading else { return }
-        isActive = rain?.isActive ?? false
-        if let hours = rain?.durationHours, hours > 0 {
-            durationHours = hours
+    private var automationBinding: Binding<Bool> {
+        Binding(
+            get: { isAutomationEnabled },
+            set: { newValue in
+                if newValue != isAutomationEnabled {
+                    onToggleAutomation(newValue)
+                }
+            }
+        )
+    }
+
+    private var canToggleAutomation: Bool {
+        hasConfiguration && !isUpdatingAutomation
+    }
+
+    private var hasConfiguration: Bool {
+        guard let zip = rain?.zipCode, !zip.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              let _ = rain?.thresholdPercent else {
+            return false
         }
+        return true
+    }
+
+    private var chanceText: String {
+        guard let chance = rain?.chancePercent else { return "--" }
+        return "\(chance)%"
+    }
+
+    private var chanceColor: Color {
+        guard isAutomationEnabled,
+              let chance = rain?.chancePercent,
+              let threshold = rain?.thresholdPercent else {
+            return .primary
+        }
+        return chance >= threshold ? .orange : .green
+    }
+
+    private var thresholdText: String {
+        guard let threshold = rain?.thresholdPercent else { return "--" }
+        return "\(threshold)%"
+    }
+
+    private var zipText: String? {
+        guard let zip = rain?.zipCode else { return nil }
+        let trimmed = zip.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private var rainStatusText: String {
+        if rain?.isActive == true {
+            return "Rain delay is active"
+        }
+        return "Rain delay is inactive"
+    }
+
+    private var rainStatusColor: Color {
+        rain?.isActive == true ? .blue : .secondary
     }
 }
