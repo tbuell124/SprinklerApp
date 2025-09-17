@@ -154,19 +154,29 @@ final class SprinklerStore: ObservableObject {
 
     func renamePin(_ pin: PinDTO, newName: String) {
         let normalizedName = normalizedName(from: newName)
+
+        guard let index = pins.firstIndex(where: { $0.id == pin.id }) else { return }
+
+        let currentNormalized = normalizedName(from: pins[index].name)
+        guard currentNormalized != normalizedName else { return }
+
+        let previousPin = pins[index]
+        pins[index].name = normalizedName
+        let isEnabled = pins[index].isEnabled ?? pin.isEnabled ?? true
+
         Task {
             do {
-                let isEnabled = pins.first(where: { $0.id == pin.id })?.isEnabled ?? pin.isEnabled ?? true
                 try await client.updatePin(pin.pin, name: normalizedName, isEnabled: isEnabled)
-                await MainActor.run {
-                    if let index = pins.firstIndex(where: { $0.id == pin.id }) {
-                        pins[index].name = normalizedName
-                    }
-                    showToast(message: "Pin renamed", style: .success)
+                await MainActor.run { [weak self] in
+                    self?.showToast(message: "Pin renamed", style: .success)
                 }
             } catch {
-                await MainActor.run {
-                    showToast(message: "Rename failed", style: .error)
+                await MainActor.run { [weak self] in
+                    guard let self else { return }
+                    if let revertIndex = self.pins.firstIndex(where: { $0.id == pin.id }) {
+                        self.pins[revertIndex] = previousPin
+                    }
+                    self.showToast(message: "Rename failed", style: .error)
                 }
             }
         }

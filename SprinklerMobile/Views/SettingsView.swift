@@ -37,15 +37,17 @@ struct SettingsView: View {
                         Text("No Pins Available")
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(Array(store.pins.enumerated()), id: \.element.id) { index, pin in
+                        PinsTableHeader()
+                            .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 2, trailing: 0))
+                        ForEach(store.pins, id: \.id) { pin in
                             PinSettingsRow(pin: pin,
-                                           position: index + 1,
                                            onRename: { updatedPin, newName in
                                                store.renamePin(updatedPin, newName: newName)
                                            },
                                            onToggleActive: { updatedPin, isActive in
                                                store.setPinEnabled(updatedPin, isEnabled: isActive)
                                            })
+                            .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 2, trailing: 0))
                         }
                     }
                 }
@@ -119,9 +121,24 @@ struct SettingsView: View {
     }
 }
 
+private struct PinsTableHeader: View {
+    var body: some View {
+        HStack(spacing: 12) {
+            Text("GPIO")
+                .frame(width: 60, alignment: .leading)
+            Text("Name")
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text("Enabled")
+                .frame(width: 80, alignment: .trailing)
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
+        .padding(.vertical, 2)
+    }
+}
+
 private struct PinSettingsRow: View {
     let pin: PinDTO
-    let position: Int
     let onRename: (PinDTO, String) -> Void
     let onToggleActive: (PinDTO, Bool) -> Void
 
@@ -130,11 +147,9 @@ private struct PinSettingsRow: View {
     @FocusState private var isFocused: Bool
 
     init(pin: PinDTO,
-         position: Int,
          onRename: @escaping (PinDTO, String) -> Void,
          onToggleActive: @escaping (PinDTO, Bool) -> Void) {
         self.pin = pin
-        self.position = position
         self.onRename = onRename
         self.onToggleActive = onToggleActive
         _name = State(initialValue: pin.name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "")
@@ -142,28 +157,29 @@ private struct PinSettingsRow: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("GPIO \(pin.pin)")
-                    .font(.subheadline)
-                Spacer()
-                Text("Pin #\(position)")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
+        HStack(spacing: 12) {
+            Text("\(pin.pin)")
+                .frame(width: 60, alignment: .leading)
+                .font(.subheadline)
 
-            Toggle("Show on Dashboard", isOn: $isEnabled)
-                .onChange(of: isEnabled) { newValue in
-                    onToggleActive(pin, newValue)
-                }
-
-            TextField("Name", text: $name, prompt: Text(pin.displayName))
+            TextField("", text: $name, prompt: Text(pin.displayName))
                 .textInputAutocapitalization(.words)
                 .disableAutocorrection(true)
                 .submitLabel(.done)
                 .focused($isFocused)
                 .onSubmit(commitRename)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Toggle("", isOn: $isEnabled)
+                .labelsHidden()
+                .controlSize(.small)
+                .onChange(of: isEnabled) { newValue in
+                    onToggleActive(pin, newValue)
+                }
+                .frame(width: 80, alignment: .trailing)
         }
+        .controlSize(.small)
+        .padding(.vertical, 4)
         .onChange(of: pin) { updatedPin in
             let trimmed = updatedPin.name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             if trimmed != name {
@@ -179,7 +195,6 @@ private struct PinSettingsRow: View {
                 commitRename()
             }
         }
-        .padding(.vertical, 4)
     }
 
     private func commitRename() {
