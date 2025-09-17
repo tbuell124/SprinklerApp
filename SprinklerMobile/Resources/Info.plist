@@ -9,5 +9,7 @@
         <key>NSAllowsArbitraryLoadsInLocalNetworks</key>
         <true/>
     </dict>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>This app uses your local network to connect to the sprinkler controller.</string>
 </dict>
 </plist>
