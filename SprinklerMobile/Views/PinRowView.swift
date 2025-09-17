@@ -6,13 +6,8 @@ struct PinRowView: View {
 
     var body: some View {
         HStack {
-            VStack(alignment: .leading) {
-                Text(pin.name ?? "Pin \(pin.pin)")
-                    .font(.headline)
-                Text("GPIO \(pin.pin)")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
+            Text(pin.displayName)
+                .font(.headline)
             Spacer()
             Toggle("", isOn: Binding(
                 get: { pin.isActive ?? false },
