@@ -10,7 +10,6 @@ enum HTTPMethod: String {
 /// better error diagnostics tailored to the sprinkler controller.
 final class HTTPClient {
     private let session: URLSession
-    private let sessionDelegate: URLSessionDelegate?
     private let decoder: JSONDecoder
     private let encoder: JSONEncoder
     private let cache: URLCache
@@ -27,9 +26,11 @@ final class HTTPClient {
         configuration.urlCache = cache
         configuration.requestCachePolicy = .useProtocolCachePolicy
 
-        let delegate = SSLPinningDelegate()
-        self.session = URLSession(configuration: configuration, delegate: delegate, delegateQueue: nil)
-        self.sessionDelegate = delegate
+        // Use a standard `URLSession` without TLS pinning because the controller
+        // communicates exclusively with the Pi over the local network via HTTP.
+        // This avoids confusion about certificate requirements while keeping
+        // the configuration focused on low-latency LAN communication.
+        self.session = URLSession(configuration: configuration)
 
         self.decoder = JSONDecoder()
         self.encoder = JSONEncoder()
