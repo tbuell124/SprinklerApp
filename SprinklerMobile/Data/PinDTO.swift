@@ -8,6 +8,11 @@ struct PinDTO: Codable, Identifiable, Hashable {
     var isActive: Bool?
     var isEnabled: Bool?
 
+    var displayName: String {
+        let trimmed = name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? "GPIO \(pin)" : trimmed
+    }
+
     enum CodingKeys: String, CodingKey {
         case pin
         case name
