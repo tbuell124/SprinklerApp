@@ -225,20 +225,20 @@ final class SprinklerStore: ObservableObject {
     }
 
     func renamePin(_ pin: PinDTO, newName: String) {
-        let normalizedName = normalizedName(from: newName)
+        let normalizedNewName = normalizedName(from: newName)
 
         guard let index = pins.firstIndex(where: { $0.id == pin.id }) else { return }
 
         let currentNormalized = normalizedName(from: pins[index].name)
-        guard currentNormalized != normalizedName else { return }
+        guard currentNormalized != normalizedNewName else { return }
 
         let previousPin = pins[index]
-        pins[index].name = normalizedName
+        pins[index].name = normalizedNewName
         let isEnabled = pins[index].isEnabled ?? pin.isEnabled ?? true
 
         Task {
             do {
-                try await client.updatePin(pin.pin, name: normalizedName, isEnabled: isEnabled)
+                try await client.updatePin(pin.pin, name: normalizedNewName, isEnabled: isEnabled)
                 await MainActor.run { [weak self] in
                     self?.showToast(message: "Pin renamed", style: .success)
                 }
@@ -260,18 +260,19 @@ final class SprinklerStore: ObservableObject {
         pins[index].isEnabled = isEnabled
 
         let normalizedName = normalizedName(from: pins[index].name)
-        Task {
+        Task { [weak self] in
+            guard let self else { return }
             do {
-                try await client.updatePin(pin.pin, name: normalizedName, isEnabled: isEnabled)
+                try await self.client.updatePin(pin.pin, name: normalizedName, isEnabled: isEnabled)
                 await MainActor.run {
-                    showToast(message: isEnabled ? "Pin enabled" : "Pin hidden", style: .success)
+                    self.showToast(message: isEnabled ? "Pin enabled" : "Pin hidden", style: .success)
                 }
             } catch {
                 await MainActor.run {
-                    if let revertIndex = pins.firstIndex(where: { $0.id == pin.id }) {
-                        pins[revertIndex] = previous
+                    if let revertIndex = self.pins.firstIndex(where: { $0.id == pin.id }) {
+                        self.pins[revertIndex] = previous
                     }
-                    showToast(message: "Failed to update pin", style: .error)
+                    self.showToast(message: "Failed to update pin", style: .error)
                 }
             }
         }
@@ -308,23 +309,23 @@ final class SprinklerStore: ObservableObject {
         Task { [weak self] in
             guard let self else { return }
             do {
-                try await client.updateRainSettings(zipCode: zipCode,
-                                                    thresholdPercent: threshold,
-                                                    isEnabled: isEnabled)
-                await refresh()
+                try await self.client.updateRainSettings(zipCode: zipCode,
+                                                        thresholdPercent: threshold,
+                                                        isEnabled: isEnabled)
+                await self.refresh()
                 await MainActor.run {
-                    showToast(message: isEnabled ? "Rain delay automation enabled" : "Rain delay automation disabled",
-                              style: .success)
+                    self.showToast(message: isEnabled ? "Rain delay automation enabled" : "Rain delay automation disabled",
+                                   style: .success)
                 }
             } catch {
                 await MainActor.run {
-                    rainAutomationEnabled = previousValue
-                    rainSettingsIsEnabled = previousValue
-                    showToast(message: "Failed to update automation", style: .error)
+                    self.rainAutomationEnabled = previousValue
+                    self.rainSettingsIsEnabled = previousValue
+                    self.showToast(message: "Failed to update automation", style: .error)
                 }
             }
             await MainActor.run {
-                isUpdatingRainAutomation = false
+                self.isUpdatingRainAutomation = false
             }
         }
     }
@@ -899,10 +900,6 @@ private extension NWEndpoint.Host {
             return address.debugDescription
         case .ipv6(let address):
             return address.debugDescription
-        case .unix(let path):
-            return path
-        case .any:
-            return "0.0.0.0"
         @unknown default:
             return ""
         }
