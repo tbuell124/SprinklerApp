@@ -30,18 +30,18 @@ actor APIClient {
         struct RainSettingsPayload: Encodable {
             let zipCode: String
             let thresholdPercent: Int
-            let isEnabled: Bool
+            let automationEnabled: Bool
 
             enum CodingKeys: String, CodingKey {
                 case zipCode = "zip_code"
                 case thresholdPercent = "threshold_percent"
-                case isEnabled = "is_enabled"
+                case automationEnabled = "automation_enabled"
             }
         }
 
         let payload = RainSettingsPayload(zipCode: zipCode,
                                           thresholdPercent: thresholdPercent,
-                                          isEnabled: isEnabled)
+                                          automationEnabled: isEnabled)
         let endpoint = Endpoint<EmptyResponse>(path: "/api/rain/settings",
                                                method: .post,
                                                body: AnyEncodable(payload))

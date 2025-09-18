@@ -252,7 +252,8 @@ final class SprinklerStore: ObservableObject {
                     if let revertIndex = self.pins.firstIndex(where: { $0.id == pin.id }) {
                         self.pins[revertIndex] = previousPin
                     }
-                    self.showToast(message: "Rename failed", style: .error)
+                    self.showToast(message: self.toastMessage(for: error, defaultMessage: "Rename failed"),
+                                   style: .error)
                 }
             }
         }
@@ -327,7 +328,9 @@ final class SprinklerStore: ObservableObject {
                 await MainActor.run {
                     self.rainAutomationEnabled = previousValue
                     self.rainSettingsIsEnabled = previousValue
-                    self.showToast(message: "Failed to update automation", style: .error)
+                    self.showToast(message: self.toastMessage(for: error,
+                                                               defaultMessage: "Failed to update automation"),
+                                   style: .error)
                 }
             }
             await MainActor.run {
@@ -361,7 +364,8 @@ final class SprinklerStore: ObservableObject {
             await refresh()
             showToast(message: "Rain settings saved", style: .success)
         } catch {
-            showToast(message: "Failed to save rain settings", style: .error)
+            showToast(message: toastMessage(for: error, defaultMessage: "Failed to save rain settings"),
+                      style: .error)
         }
     }
 
@@ -665,6 +669,13 @@ final class SprinklerStore: ObservableObject {
             return nil
         }
         return threshold
+    }
+
+    private func toastMessage(for error: Error, defaultMessage: String) -> String {
+        if let apiError = error as? APIError {
+            return apiError.localizedDescription
+        }
+        return defaultMessage
     }
 
     /// Persists the latest in-memory status so future launches (and offline
