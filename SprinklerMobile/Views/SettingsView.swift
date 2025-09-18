@@ -25,7 +25,7 @@ struct SettingsView: View {
                         }
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(store.isChecking)
+                    .disabled(isTestButtonDisabled)
 
                     ConnectivityBadgeView(state: store.state, isLoading: store.isChecking)
                         .accessibilityLabel(accessibilityLabel)
@@ -51,6 +51,10 @@ struct SettingsView: View {
 
     private func runHealthCheck() {
         Task { await store.testConnection() }
+    }
+
+    private var isTestButtonDisabled: Bool {
+        store.isChecking || store.baseURLString.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private var accessibilityLabel: String {
