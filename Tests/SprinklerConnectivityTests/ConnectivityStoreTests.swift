@@ -11,8 +11,8 @@ final class ConnectivityStoreTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
         defer { defaults.removePersistentDomain(forName: suiteName) }
 
-        let healthChecker = MockHealthChecker(result: .connected)
-        let store = await ConnectivityStore(userDefaults: defaults, healthChecker: healthChecker)
+        let checker = MockHealthChecker(result: .connected)
+        let store = await ConnectivityStore(checker: checker, defaults: defaults)
 
         await MainActor.run {
             store.baseURLString = "http://example.local:8080"
@@ -22,9 +22,15 @@ final class ConnectivityStoreTests: XCTestCase {
         let savedValue = defaults.string(forKey: "sprinkler.baseURL")
         XCTAssertEqual(savedValue, "http://example.local:8080")
     }
+
+    @MainActor
+    func testNormalizedBaseURLAddsSchemeWhenMissing() {
+        let url = ConnectivityStore.normalizedBaseURL(from: "sprinkler.local:1234")
+        XCTAssertEqual(url?.absoluteString, "http://sprinkler.local:1234")
+    }
 }
 
-private actor MockHealthChecker: HealthChecking {
+private actor MockHealthChecker: ConnectivityChecking {
     let result: ConnectivityState
 
     init(result: ConnectivityState) {

@@ -50,7 +50,6 @@ struct SettingsView: View {
             }
             .navigationTitle("Settings")
             .onAppear {
-                discoveryViewModel.attach(connectivityStore: store)
                 discoveryViewModel.start()
             }
             .onDisappear {
@@ -107,7 +106,8 @@ struct SettingsView: View {
             ForEach(discoveryViewModel.devices) { device in
                 Button {
                     isURLFieldFocused = false
-                    discoveryViewModel.select(device: device)
+                    store.baseURLString = device.baseURLString
+                    runHealthCheck()
                 } label: {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(device.name.isEmpty ? "sprinkler" : device.name)
