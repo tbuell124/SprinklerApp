@@ -53,7 +53,7 @@ final class SprinklerStore: ObservableObject {
     @Published private(set) var connectionDiagnostics: ConnectionDiagnostics?
 
     // Settings state
-    @Published var targetAddress: String
+    @Published var targetAddress: String = ""
     @Published var validationError: String?
     @Published private(set) var resolvedBaseURL: URL?
     @Published var isTestingConnection: Bool = false
