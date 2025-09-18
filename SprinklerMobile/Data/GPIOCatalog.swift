@@ -15,6 +15,12 @@ struct GPIOCatalog {
     /// wired system.
     private static let defaultZonePins: [Int] = Array(0...27)
 
+    /// GPIO pin numbers that are electrically safe to expose in the user
+    /// interface.  The controller hardware only drives pins 0-27 (BCM
+    /// numbering), so publish that subset for both placeholder data and any
+    /// validation logic.
+    static let safeOutputPins: [Int] = defaultZonePins
+
     /// Creates human friendly placeholder models for each default irrigation
     /// zone.  These placeholders mirror the data the API will eventually
     /// provide once the client successfully communicates with the controller.
