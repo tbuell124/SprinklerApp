@@ -40,6 +40,19 @@ final class HealthCheckerTests: XCTestCase {
         }
     }
 
+    func testOfflineWhenServerReturnsUnrecognizedStatusField() async {
+        configureStub(statusCode: 200, data: Data("{\"status\":\"mystery\"}".utf8))
+        let checker = HealthChecker(session: makeSession(protocolClass: StubURLProtocol.self))
+
+        let result = await checker.check(baseURL: URL(string: "http://example.com")!)
+
+        if case let .offline(description) = result {
+            XCTAssertNotNil(description)
+        } else {
+            XCTFail("Expected offline state")
+        }
+    }
+
     func testOfflineWhenControllerReportsUnhealthyStatus() async {
         configureStub(statusCode: 200, data: Data("{\"ok\":false}".utf8))
         let checker = HealthChecker(session: makeSession(protocolClass: StubURLProtocol.self))

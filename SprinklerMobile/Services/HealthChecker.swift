@@ -127,6 +127,6 @@ struct HealthChecker: ConnectivityChecking {
             }
         }
 
-        return true
+        return nil
     }
 }
