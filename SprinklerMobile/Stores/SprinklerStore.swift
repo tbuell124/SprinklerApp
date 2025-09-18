@@ -32,7 +32,7 @@ final class SprinklerStore: ObservableObject {
     }
 
     // Remote resources
-    @Published private(set) var pins: [PinDTO] = []
+    @Published private(set) var pins: [PinDTO] = GPIOCatalog.makeDefaultPins()
     var activePins: [PinDTO] {
         pins.filter { $0.isEnabled ?? true }
     }
@@ -242,7 +242,9 @@ final class SprinklerStore: ObservableObject {
             do {
                 try await client.updatePin(pin.pin, name: normalizedNewName, isEnabled: isEnabled)
                 await MainActor.run { [weak self] in
-                    self?.showToast(message: "Pin renamed", style: .success)
+                    guard let self else { return }
+                    self.persistCurrentStateSnapshot()
+                    self.showToast(message: "Pin renamed", style: .success)
                 }
             } catch {
                 await MainActor.run { [weak self] in
@@ -266,7 +268,9 @@ final class SprinklerStore: ObservableObject {
             guard let self else { return }
             do {
                 try await self.client.updatePin(pin.pin, name: normalizedName, isEnabled: isEnabled)
-                await MainActor.run {
+                await MainActor.run { [weak self] in
+                    guard let self else { return }
+                    self.persistCurrentStateSnapshot()
                     self.showToast(message: isEnabled ? "Pin enabled" : "Pin hidden", style: .success)
                 }
             } catch {
@@ -560,11 +564,47 @@ final class SprinklerStore: ObservableObject {
     }
 
     private func apply(status: StatusDTO) {
-        assignIfDifferent(\SprinklerStore.pins, to: status.pins ?? [])
+        let mergedPins = mergePinsWithCatalog(status.pins ?? [])
+        assignIfDifferent(\SprinklerStore.pins, to: mergedPins)
         assignIfDifferent(\SprinklerStore.schedules, to: status.schedules ?? [])
         assignIfDifferent(\SprinklerStore.scheduleGroups, to: status.scheduleGroups ?? [])
         assignIfDifferent(\SprinklerStore.rain, to: status.rain)
         syncRainSettings(from: status.rain)
+    }
+
+    /// Blends controller supplied pin metadata with the static catalog so every
+    /// safely drivable GPIO appears in the UI even if the backend omits it.
+    private func mergePinsWithCatalog(_ remotePins: [PinDTO]) -> [PinDTO] {
+        let catalog = GPIOCatalog.safeOutputPins
+        let catalogSet = Set(catalog)
+
+        var catalogOverrides: [Int: PinDTO] = [:]
+        var additionalPins: [PinDTO] = []
+
+        for pin in remotePins {
+            if catalogSet.contains(pin.pin) {
+                // Preserve the backend-provided configuration for catalog pins.
+                catalogOverrides[pin.pin] = pin
+            } else {
+                // Keep any extra pins returned by the server so nothing is lost.
+                additionalPins.append(pin)
+            }
+        }
+
+        let catalogPins = catalog.map { pinNumber -> PinDTO in
+            if let existing = catalogOverrides[pinNumber] {
+                return existing
+            }
+            // Backend did not report this pin, so surface it as a disabled placeholder.
+            return PinDTO(pin: pinNumber,
+                          name: nil,
+                          isActive: nil,
+                          isEnabled: false)
+        }
+
+        // Append any non-catalog pins so the full server response remains visible.
+        let sortedAdditionalPins = additionalPins.sorted { $0.pin < $1.pin }
+        return catalogPins + sortedAdditionalPins
     }
 
     private func normalizedName(from name: String) -> String? {
@@ -625,6 +665,19 @@ final class SprinklerStore: ObservableObject {
             return nil
         }
         return threshold
+    }
+
+    /// Persists the latest in-memory status so future launches (and offline
+    /// sessions) reflect configuration changes such as renames immediately.
+    @MainActor
+    private func persistCurrentStateSnapshot() {
+        let snapshot = StatusDTO(pins: pins,
+                                 schedules: schedules,
+                                 scheduleGroups: scheduleGroups,
+                                 rain: rain,
+                                 version: serverVersion,
+                                 lastUpdated: Date())
+        statusCache.save(snapshot)
     }
 
     private func showToast(message: String, style: ToastState.Style) {
