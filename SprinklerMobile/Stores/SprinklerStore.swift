@@ -84,9 +84,20 @@ final class SprinklerStore: ObservableObject {
         }
 
         let savedAddress = keychainValue ?? defaultsValue ?? ""
-        self.targetAddress = savedAddress
-        self.validationError = nil
-        self.resolvedBaseURL = try? Validators.normalizeBaseAddress(savedAddress)
+        let trimmedSavedAddress = savedAddress.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let normalizedURL = try? Validators.normalizeBaseAddress(trimmedSavedAddress) {
+            let canonicalAddress = normalizedURL.absoluteString
+            self.targetAddress = canonicalAddress
+            self.validationError = nil
+            self.resolvedBaseURL = normalizedURL
+            if !trimmedSavedAddress.isEmpty, canonicalAddress != trimmedSavedAddress {
+                persistTargetAddress(normalizedURL)
+            }
+        } else {
+            self.targetAddress = trimmedSavedAddress
+            self.validationError = nil
+            self.resolvedBaseURL = nil
+        }
         self.lastSuccessfulConnection = userDefaults.object(forKey: lastSuccessKey) as? Date
         self.serverVersion = userDefaults.string(forKey: versionKey)
 
@@ -446,10 +457,14 @@ final class SprinklerStore: ObservableObject {
     func resolveCurrentAddress() throws -> URL {
         let url = try Validators.normalizeBaseAddress(targetAddress)
         validationError = nil
+        let canonicalAddress = url.absoluteString
+        if targetAddress != canonicalAddress {
+            targetAddress = canonicalAddress
+        }
         if resolvedBaseURL != url {
             resolvedBaseURL = url
         }
-        persistTargetAddress(targetAddress)
+        persistTargetAddress(url)
         return url
     }
 
@@ -476,12 +491,17 @@ final class SprinklerStore: ObservableObject {
         connectionDiagnostics = nil
     }
 
-    private func persistTargetAddress(_ address: String) {
+    private func persistTargetAddress(_ url: URL) {
+        let canonicalAddress = url.absoluteString
+        if keychain.string(forKey: keychainTargetKey) == canonicalAddress {
+            return
+        }
+
         do {
-            try keychain.set(address, forKey: keychainTargetKey)
+            try keychain.set(canonicalAddress, forKey: keychainTargetKey)
             defaults.removeObject(forKey: targetKey)
         } catch {
-            defaults.set(address, forKey: targetKey)
+            defaults.set(canonicalAddress, forKey: targetKey)
         }
     }
 

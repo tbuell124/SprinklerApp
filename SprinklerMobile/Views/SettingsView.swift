@@ -15,10 +15,24 @@ struct SettingsView: View {
                         .textInputAutocapitalization(.never)
                         .keyboardType(.URL)
                         .disableAutocorrection(true)
+                        .textContentType(.URL)
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 4)
+                        .background {
+                            RoundedRectangle(cornerRadius: 8)
+                                .strokeBorder(store.validationError == nil ? Color.secondary.opacity(0.2) : .red,
+                                              lineWidth: store.validationError == nil ? 0.5 : 1.5)
+                        }
+                        .accessibilityHint("Enter the sprinkler controller base URL.")
                     if let error = store.validationError {
-                        Text(error)
-                            .font(.caption)
-                            .foregroundStyle(.red)
+                        Label {
+                            Text(error)
+                        } icon: {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .accessibilityLabel(Text("Validation error: \(error)"))
                     }
                     Button {
                         Task { await store.saveAndTestTarget() }
