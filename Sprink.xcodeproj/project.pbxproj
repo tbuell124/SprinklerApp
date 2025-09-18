@@ -106,8 +106,6 @@
 		6251FB392E7C7D3F001856FD = {
 			isa = PBXGroup;
 			children = (
-				621360F22E7C8C730094E4D2 /* Assets.xcassets */,
-				621360EF2E7C8AE30094E4D2 /* LaunchScreen.storyboard */,
 				6251FB5E2E7C7DCF001856FD /* Package.swift */,
 				6251FB5F2E7C7DCF001856FD /* README.md */,
 				6251FB892E7C7DCF001856FD /* SprinklerMobile */,
@@ -155,6 +153,8 @@
 			isa = PBXGroup;
 			children = (
 				6251FB6F2E7C7DCF001856FD /* Info.plist */,
+				621360EF2E7C8AE30094E4D2 /* LaunchScreen.storyboard */,
+				621360F22E7C8C730094E4D2 /* Assets.xcassets */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
