@@ -1,77 +1,28 @@
 import SwiftUI
 
 struct DashboardView: View {
-    @EnvironmentObject private var store: SprinklerStore
-
-    private var toastBinding: Binding<ToastState?> {
-        Binding(get: { store.toast }, set: { store.toast = $0 })
-    }
+    @EnvironmentObject private var store: ConnectivityStore
 
     var body: some View {
         NavigationStack {
             List {
-                Section {
-                    connectionBanner
-                }
-                PinsListView(pins: store.pins,
-                             totalPinCount: store.pins.count,
-                             isLoading: store.isRefreshing && store.pins.isEmpty,
-                             onToggle: { pin, newValue in store.togglePin(pin, to: newValue) },
-                             onReorder: store.reorderPins)
-                Section("Rain Delay") {
-                    RainCardView(rain: store.rain,
-                                 isLoading: store.isRefreshing && store.rain == nil,
-                                 isAutomationEnabled: store.rainAutomationEnabled,
-                                 isUpdatingAutomation: store.isUpdatingRainAutomation,
-                                 onToggleAutomation: { store.setRainAutomationEnabled($0) })
-                    .listRowInsets(EdgeInsets())
+                Section("Connection") {
+                    ConnectivityBadgeView(state: store.state, isLoading: store.isChecking)
+                    if case let .offline(error?) = store.state {
+                        Text(error)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
             .listStyle(.insetGrouped)
             .navigationTitle("Dashboard")
-            .toolbar { EditButton() }
             .refreshable {
                 await store.refresh()
             }
         }
-        .toast(state: toastBinding)
-    }
-
-    private var connectionBanner: some View {
-        HStack {
-            Image(systemName: store.connectionStatus.isReachable ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                .foregroundStyle(store.connectionStatus.isReachable ? .green : .orange)
-            VStack(alignment: .leading) {
-                Text(store.connectionStatus.bannerText)
-                    .font(.headline)
-                if let last = store.lastSuccessfulConnection {
-                    Text("Last Connected: \(last.formatted(date: .abbreviated, time: .shortened))")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                if let diagnostics = store.connectionDiagnostics {
-                    Text("Latency: \(diagnostics.latency.formatted(.number.precision(.fractionLength(2)))) s")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-                if let version = store.serverVersion {
-                    Text("Server Version: \(version)")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-                if let failure = store.lastFailure, store.connectionStatus.isReachable {
-                    Text("Last error: \(failure.localizedDescription)")
-                        .font(.caption2)
-                        .foregroundStyle(.orange)
-                }
-                if case let .unreachable(message) = store.connectionStatus {
-                    Text(message)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                }
-            }
-            Spacer()
+        .task {
+            await store.refresh()
         }
-        .padding(.vertical, 8)
     }
 }
