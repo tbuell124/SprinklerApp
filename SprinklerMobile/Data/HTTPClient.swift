@@ -6,6 +6,50 @@ enum HTTPMethod: String {
     case delete = "DELETE"
 }
 
+/// Describes a single HTTP call against the sprinkler controller API.
+///
+/// The endpoint keeps the request metadata and payload in one place so the
+/// `HTTPClient` can focus on delivery/retry behaviour and callers can express
+/// their intent declaratively.
+struct Endpoint<Response: Decodable> {
+    let path: String
+    let method: HTTPMethod
+    let headers: [String: String]
+    let body: AnyEncodable?
+    let fallbackToEmptyBody: Bool
+    let cachePolicy: URLRequest.CachePolicy?
+
+    init(path: String,
+         method: HTTPMethod = .get,
+         headers: [String: String] = [:],
+         body: AnyEncodable? = nil,
+         fallbackToEmptyBody: Bool = false,
+         cachePolicy: URLRequest.CachePolicy? = nil) {
+        self.path = path
+        self.method = method
+        self.headers = headers
+        self.body = body
+        self.fallbackToEmptyBody = fallbackToEmptyBody
+        self.cachePolicy = cachePolicy
+    }
+}
+
+/// Type-erased `Encodable` wrapper so callers can hand arbitrary payloads to the networking layer
+/// without forcing generics or sacrificing type safety.
+struct AnyEncodable: Encodable {
+    private let encodeClosure: (Encoder) throws -> Void
+
+    init(_ encodable: Encodable) {
+        self.encodeClosure = { encoder in
+            try encodable.encode(to: encoder)
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        try encodeClosure(encoder)
+    }
+}
+
 /// Thin wrapper around `URLSession` that adds request retries, offline caching and
 /// better error diagnostics tailored to the sprinkler controller.
 final class HTTPClient {

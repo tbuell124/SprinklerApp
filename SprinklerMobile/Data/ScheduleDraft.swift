@@ -39,3 +39,20 @@ struct ScheduleDraft: Identifiable, Equatable {
                              isEnabled: isEnabled)
     }
 }
+
+/// Payload used when creating or updating a schedule via the controller API.
+struct ScheduleWritePayload: Encodable {
+    let name: String?
+    let durationMinutes: Int
+    let startTime: String
+    let days: [String]?
+    let isEnabled: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case durationMinutes = "duration"
+        case startTime = "start_time"
+        case days
+        case isEnabled = "is_enabled"
+    }
+}
