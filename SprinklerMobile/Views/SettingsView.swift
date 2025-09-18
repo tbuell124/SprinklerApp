@@ -46,6 +46,36 @@ struct SettingsView: View {
                     .disabled(store.targetAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || store.isTestingConnection)
                 }
 
+                Section("Discovered Controllers") {
+                    if store.isDiscoveringServices {
+                        Label("Searching local network…", systemImage: "dot.radiowaves.left.and.right")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if store.discoveredServices.isEmpty {
+                        Text("No controllers found yet. Ensure the Pi is powered on, connected to the same network, or enter the address manually.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(store.discoveredServices) { service in
+                            Button {
+                                store.useDiscoveredService(service)
+                            } label: {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(service.name)
+                                        .font(.body)
+                                    Text(service.detailDescription)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+
                 Section("Pins") {
                     if store.pins.isEmpty {
                         Text("No Pins Available")
@@ -132,6 +162,8 @@ struct SettingsView: View {
             .navigationTitle("Settings")
         }
         .toast(state: toastBinding)
+        .onAppear { store.beginBonjourDiscovery() }
+        .onDisappear { store.endBonjourDiscovery() }
     }
 }
 
