@@ -9,21 +9,17 @@
 /* Begin PBXBuildFile section */
 		621360F02E7C8AE30094E4D2 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 621360EF2E7C8AE30094E4D2 /* LaunchScreen.storyboard */; };
 		621360F32E7C8C730094E4D2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 621360F22E7C8C730094E4D2 /* Assets.xcassets */; };
-		621360F42E7C8C7E0094E4D2 /* Assets.xcassets in Sources */ = {isa = PBXBuildFile; fileRef = 621360F22E7C8C730094E4D2 /* Assets.xcassets */; };
 		6251FB8F2E7C7DCF001856FD /* RainDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB662E7C7DCF001856FD /* RainDTO.swift */; };
 		6251FB902E7C7DCF001856FD /* ConnectivityBadgeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB7E2E7C7DCF001856FD /* ConnectivityBadgeView.swift */; };
 		6251FB912E7C7DCF001856FD /* SkeletonView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB782E7C7DCF001856FD /* SkeletonView.swift */; };
-		6251FB922E7C7DCF001856FD /* HealthCheckerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB8C2E7C7DCF001856FD /* HealthCheckerTests.swift */; };
 		6251FB932E7C7DCF001856FD /* HTTPClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB642E7C7DCF001856FD /* HTTPClient.swift */; };
 		6251FB942E7C7DCF001856FD /* BonjourDiscoveryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB712E7C7DCF001856FD /* BonjourDiscoveryService.swift */; };
-		6251FB952E7C7DCF001856FD /* ConnectivityStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB8B2E7C7DCF001856FD /* ConnectivityStoreTests.swift */; };
 		6251FB962E7C7DCF001856FD /* StatusDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB6B2E7C7DCF001856FD /* StatusDTO.swift */; };
 		6251FB972E7C7DCF001856FD /* KeychainStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB772E7C7DCF001856FD /* KeychainStorage.swift */; };
 		6251FB982E7C7DCF001856FD /* ConnectivityStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB742E7C7DCF001856FD /* ConnectivityStore.swift */; };
 		6251FB992E7C7DCF001856FD /* PinsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB812E7C7DCF001856FD /* PinsListView.swift */; };
 		6251FB9A2E7C7DCF001856FD /* Toast.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB792E7C7DCF001856FD /* Toast.swift */; };
 		6251FB9B2E7C7DCF001856FD /* EmptyResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB622E7C7DCF001856FD /* EmptyResponse.swift */; };
-		6251FB9C2E7C7DCF001856FD /* BonjourDiscoveryServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB8A2E7C7DCF001856FD /* BonjourDiscoveryServiceTests.swift */; };
 		6251FB9D2E7C7DCF001856FD /* PinRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB802E7C7DCF001856FD /* PinRowView.swift */; };
 		6251FB9E2E7C7DCF001856FD /* Validators.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB7A2E7C7DCF001856FD /* Validators.swift */; };
 		6251FB9F2E7C7DCF001856FD /* SprinklerMobileApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB882E7C7DCF001856FD /* SprinklerMobileApp.swift */; };
@@ -38,7 +34,6 @@
 		6251FBA82E7C7DCF001856FD /* ScheduleDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB682E7C7DCF001856FD /* ScheduleDTO.swift */; };
 		6251FBA92E7C7DCF001856FD /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB602E7C7DCF001856FD /* APIClient.swift */; };
 		6251FBAA2E7C7DCF001856FD /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB7F2E7C7DCF001856FD /* DashboardView.swift */; };
-		6251FBAB2E7C7DCF001856FD /* Package.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB5E2E7C7DCF001856FD /* Package.swift */; };
 		6251FBAC2E7C7DCF001856FD /* HealthChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB722E7C7DCF001856FD /* HealthChecker.swift */; };
 		6251FBAD2E7C7DCF001856FD /* PinDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB652E7C7DCF001856FD /* PinDTO.swift */; };
 		6251FBAE2E7C7DCF001856FD /* ScheduleGroupDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB692E7C7DCF001856FD /* ScheduleGroupDTO.swift */; };
@@ -319,21 +314,17 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				621360F42E7C8C7E0094E4D2 /* Assets.xcassets in Sources */,
 				6251FB8F2E7C7DCF001856FD /* RainDTO.swift in Sources */,
 				6251FB902E7C7DCF001856FD /* ConnectivityBadgeView.swift in Sources */,
 				6251FB912E7C7DCF001856FD /* SkeletonView.swift in Sources */,
-				6251FB922E7C7DCF001856FD /* HealthCheckerTests.swift in Sources */,
 				6251FB932E7C7DCF001856FD /* HTTPClient.swift in Sources */,
 				6251FB942E7C7DCF001856FD /* BonjourDiscoveryService.swift in Sources */,
-				6251FB952E7C7DCF001856FD /* ConnectivityStoreTests.swift in Sources */,
 				6251FB962E7C7DCF001856FD /* StatusDTO.swift in Sources */,
 				6251FB972E7C7DCF001856FD /* KeychainStorage.swift in Sources */,
 				6251FB982E7C7DCF001856FD /* ConnectivityStore.swift in Sources */,
 				6251FB992E7C7DCF001856FD /* PinsListView.swift in Sources */,
 				6251FB9A2E7C7DCF001856FD /* Toast.swift in Sources */,
 				6251FB9B2E7C7DCF001856FD /* EmptyResponse.swift in Sources */,
-				6251FB9C2E7C7DCF001856FD /* BonjourDiscoveryServiceTests.swift in Sources */,
 				6251FB9D2E7C7DCF001856FD /* PinRowView.swift in Sources */,
 				6251FB9E2E7C7DCF001856FD /* Validators.swift in Sources */,
 				6251FB9F2E7C7DCF001856FD /* SprinklerMobileApp.swift in Sources */,
@@ -348,7 +339,6 @@
 				6251FBA82E7C7DCF001856FD /* ScheduleDTO.swift in Sources */,
 				6251FBA92E7C7DCF001856FD /* APIClient.swift in Sources */,
 				6251FBAA2E7C7DCF001856FD /* DashboardView.swift in Sources */,
-				6251FBAB2E7C7DCF001856FD /* Package.swift in Sources */,
 				6251FBAC2E7C7DCF001856FD /* HealthChecker.swift in Sources */,
 				6251FBAD2E7C7DCF001856FD /* PinDTO.swift in Sources */,
 				6251FBAE2E7C7DCF001856FD /* ScheduleGroupDTO.swift in Sources */,
