@@ -32,7 +32,7 @@ final class SprinklerStore: ObservableObject {
     }
 
     // Remote resources
-    @Published private(set) var pins: [PinDTO] = GPIOCatalog.makeDefaultPins()
+    @Published private(set) var pins: [PinDTO] = PinDTO.makeDefaultSprinklerPins()
     var activePins: [PinDTO] {
         pins.filter { $0.isEnabled ?? true }
     }
@@ -575,7 +575,7 @@ final class SprinklerStore: ObservableObject {
     /// Blends controller supplied pin metadata with the static catalog so every
     /// safely drivable GPIO appears in the UI even if the backend omits it.
     private func mergePinsWithCatalog(_ remotePins: [PinDTO]) -> [PinDTO] {
-        let catalog = GPIOCatalog.safeOutputPins
+        let catalog = PinDTO.sprinklerSafeOutputPins
         let catalogSet = Set(catalog)
 
         var catalogOverrides: [Int: PinDTO] = [:]
