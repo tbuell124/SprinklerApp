@@ -16,6 +16,15 @@ final class HTTPClient {
     private let maxRetries: Int
     private let initialRetryDelay: TimeInterval
 
+    /// RFC 1123 formatter used to parse `Retry-After` headers expressed as HTTP dates.
+    private static let retryAfterDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "EEE, dd MMM yyyy HH:mm:ss zzz"
+        return formatter
+    }()
+
     init(sessionConfiguration: URLSessionConfiguration = .default,
          cache: URLCache = HTTPClient.makeDefaultCache(),
          maxRetries: Int = 2,
@@ -113,9 +122,25 @@ final class HTTPClient {
                     return try decodeResponse(data: cachedResponse.data, responseType: Response.self)
                 }
 
-                guard 200..<300 ~= httpResponse.statusCode else {
+                let statusCode = httpResponse.statusCode
+
+                // Evaluate the HTTP status code so we can apply retry policies when needed.
+                guard 200..<300 ~= statusCode else {
                     let message = extractProblemDescription(from: data)
-                    throw APIError.requestFailed(status: httpResponse.statusCode, message: message)
+                    let error = APIError.requestFailed(status: statusCode, message: message)
+
+                    if attempt < maxRetries && shouldRetry(statusCode: statusCode) {
+                        // Honor any server supplied `Retry-After` value and blend it with
+                        // our exponential backoff using jitter to avoid client thundering herd.
+                        let retryAfter = retryAfterDelayIfAvailable(from: httpResponse, statusCode: statusCode)
+                        let waitTime = calculateRetryDelay(baseDelay: currentDelay, retryAfter: retryAfter)
+                        attempt += 1
+                        try await sleepForRetry(delay: waitTime)
+                        currentDelay = nextBaseDelay(after: currentDelay, retryAfter: retryAfter)
+                        continue
+                    }
+
+                    throw error
                 }
 
                 if endpoint.method == .get {
@@ -127,9 +152,11 @@ final class HTTPClient {
             } catch {
                 let apiError = mapToAPIError(error)
                 if attempt < maxRetries && shouldRetry(apiError) {
+                    // Network level failures fall back to exponential backoff with jitter.
+                    let waitTime = calculateRetryDelay(baseDelay: currentDelay, retryAfter: nil)
                     attempt += 1
-                    try await Task.sleep(nanoseconds: UInt64(currentDelay * 1_000_000_000))
-                    currentDelay *= 2
+                    try await sleepForRetry(delay: waitTime)
+                    currentDelay = nextBaseDelay(after: currentDelay, retryAfter: nil)
                     continue
                 }
 
@@ -171,10 +198,14 @@ final class HTTPClient {
         case .unreachable:
             return true
         case .requestFailed(let status, _):
-            return (500...599).contains(status)
+            return status == 429 || (500...599).contains(status)
         default:
             return false
         }
+    }
+
+    private func shouldRetry(statusCode: Int) -> Bool {
+        return statusCode == 429 || (500...599).contains(statusCode)
     }
 
     private func mapToAPIError(_ error: Error) -> APIError {
@@ -221,6 +252,61 @@ final class HTTPClient {
         }
 
         return nil
+    }
+
+    /// Parse the `Retry-After` header when it is relevant so that we can respect
+    /// server-side throttling instructions.
+    private func retryAfterDelayIfAvailable(from response: HTTPURLResponse, statusCode: Int) -> TimeInterval? {
+        guard statusCode == 429 || statusCode == 503 else { return nil }
+        guard let header = response.value(forHTTPHeaderField: "Retry-After")?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !header.isEmpty else { return nil }
+
+        if let seconds = TimeInterval(header) {
+            return max(0, seconds)
+        }
+
+        if let date = HTTPClient.retryAfterDateFormatter.date(from: header) {
+            return max(0, date.timeIntervalSinceNow)
+        }
+
+        return nil
+    }
+
+    /// Combine exponential backoff with jitter while respecting any server directive.
+    private func calculateRetryDelay(baseDelay: TimeInterval, retryAfter: TimeInterval?) -> TimeInterval {
+        let sanitizedBase = max(0, baseDelay)
+
+        guard let retryAfter else {
+            return Double.random(in: 0...sanitizedBase)
+        }
+
+        let sanitizedRetry = max(0, retryAfter)
+
+        if sanitizedBase <= sanitizedRetry {
+            return sanitizedRetry
+        }
+
+        let jitterRange = sanitizedBase - sanitizedRetry
+        let jitter = jitterRange > 0 ? Double.random(in: 0...jitterRange) : 0
+        return sanitizedRetry + jitter
+    }
+
+    /// Suspend execution for the requested retry interval while guarding against overflow.
+    private func sleepForRetry(delay: TimeInterval) async throws {
+        let minimumDelay = max(0, delay)
+        let maximumSupportedDelay = Double(UInt64.max) / 1_000_000_000
+        let cappedDelay = min(minimumDelay, maximumSupportedDelay)
+        let nanoseconds = UInt64(cappedDelay * 1_000_000_000)
+        try await Task.sleep(nanoseconds: nanoseconds)
+    }
+
+    /// Update the base delay for the next retry attempt while keeping exponential growth.
+    private func nextBaseDelay(after current: TimeInterval, retryAfter: TimeInterval?) -> TimeInterval {
+        let doubled = current * 2
+        if let retryAfter {
+            return max(doubled, retryAfter)
+        }
+        return max(doubled, initialRetryDelay)
     }
 
     private func makeURL(baseURL: URL, endpointPath: String) throws -> URL {
