@@ -17,12 +17,14 @@ let package = Package(
                 "Data",
                 "Resources",
                 "Stores",
+                "ViewModels",
                 "Utils",
                 "Views",
                 "SprinklerMobileApp.swift"
             ],
             sources: [
                 "Services/HealthChecker.swift",
+                "Services/BonjourDiscoveryService.swift",
                 "Store/ConnectivityStore.swift"
             ]
         ),

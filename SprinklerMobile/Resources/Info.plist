@@ -11,9 +11,10 @@
     </dict>
     <key>NSBonjourServices</key>
     <array>
-        <string>_sprinkler._tcp</string>
+        <string>_sprinkler._tcp.</string>
+        <string>_http._tcp.</string>
     </array>
     <key>NSLocalNetworkUsageDescription</key>
-    <string>This app uses your local network to connect to the sprinkler controller.</string>
+    <string>The app discovers the sprinkler controller on your local network.</string>
 </dict>
 </plist>
