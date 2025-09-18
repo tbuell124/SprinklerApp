@@ -1,35 +1,28 @@
 import Foundation
 
-/// Catalog of GPIO pins that the iOS client can safely expose for zone control.
+/// Catalog of sprinkler zones that the mobile client can expose before it
+/// successfully downloads the definitive configuration from the controller.
 ///
-/// The Raspberry Pi exposes twenty-eight addressable GPIO pins (BCM 0-27) that
-/// the irrigation controller can map to sprinkler zones. The installer in this
-/// deployment has every available output wired, so the catalog must expose the
-/// full set so the iOS client can toggle each solenoid.
+/// The project originally targeted all twenty-eight Raspberry Pi pins, but the
+/// production wiring only connects four solenoids. Publishing just those
+/// sprinklers keeps the placeholder UI realistic for installers and avoids
+/// suggesting unsupported outputs.
 struct GPIOCatalog {
-    /// Default zones that ship with a fresh installation of the controller.
-    ///
-    /// The mobile client needs a predictable set of pins so the UI can render
-    /// something useful before it has a chance to talk to the Raspberry Pi.
-    /// Present every usable GPIO so the placeholder state mirrors the fully
-    /// wired system.
-    private static let defaultZonePins: [Int] = Array(0...27)
+    /// Default GPIO configuration that mirrors the four production sprinkler
+    /// zones connected to the Raspberry Pi controller.
+    private static let defaultPins: [PinDTO] = [
+        PinDTO(pin: 0, name: "Zone 1", isActive: false, isEnabled: true),
+        PinDTO(pin: 1, name: "Zone 2", isActive: false, isEnabled: true),
+        PinDTO(pin: 2, name: "Zone 3", isActive: false, isEnabled: true),
+        PinDTO(pin: 3, name: "Zone 4", isActive: false, isEnabled: true)
+    ]
 
-    /// GPIO pin numbers that are electrically safe to expose in the user
-    /// interface.  The controller hardware only drives pins 0-27 (BCM
-    /// numbering), so publish that subset for both placeholder data and any
-    /// validation logic.
-    static let safeOutputPins: [Int] = defaultZonePins
+    /// GPIO pin numbers that are safe for the UI to expose.
+    static let safeOutputPins: [Int] = defaultPins.map(\.pin)
 
-    /// Creates human friendly placeholder models for each default irrigation
-    /// zone.  These placeholders mirror the data the API will eventually
-    /// provide once the client successfully communicates with the controller.
+    /// Creates placeholder pins for the UI when no controller data is
+    /// available.
     static func makeDefaultPins() -> [PinDTO] {
-        defaultZonePins.enumerated().map { index, pin in
-            PinDTO(pin: pin,
-                   name: "Zone \(index + 1)",
-                   isActive: false,
-                   isEnabled: true)
-        }
+        defaultPins
     }
 }
