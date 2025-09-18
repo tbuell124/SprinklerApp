@@ -276,3 +276,74 @@ iOS app says “Failed to decode…”	Wrong endpoint or JSON format	Verify URL 
 Nothing running on port 5000	Service didn’t start	journalctl -u sprinkler.service for logs
 
 With these steps complete, your Raspberry Pi sprinkler controller will run continuously and require minimal upkeep.
+
+Raspberry Pi Setup for /api/status (Phase 1)
+-------------------------------------------
+To let the iOS app verify connectivity, the Pi must serve an HTTP endpoint at:
+
+```
+http://<hostname-or-ip>:8000/api/status
+```
+
+that returns an HTTP 200 and a JSON object (any fields) when healthy.
+
+Minimal Python server (FastAPI)
+```
+# On the Pi
+sudo apt update && sudo apt install -y python3-venv git
+mkdir -p /srv/sprinkler && cd /srv/sprinkler
+python3 -m venv .venv
+source .venv/bin/activate
+pip install fastapi uvicorn
+
+# Create app.py
+cat > app.py << 'PY'
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
+app = FastAPI()
+
+@app.get("/api/status")
+def status():
+    return JSONResponse({"ok": True, "service": "sprinkler", "version": "v1"})
+PY
+
+# Run (foreground) to test:
+uvicorn app:app --host 0.0.0.0 --port 8000
+```
+
+Test from a Mac (replace host as needed)
+```
+curl -i http://sprinkler.local:8000/api/status
+# Expect: HTTP/1.1 200 OK and a JSON object like {"ok": true, ...}
+```
+
+Optional: systemd service for auto-start
+```
+# Create a systemd unit
+sudo tee /etc/systemd/system/sprinkler.service >/dev/null <<'UNIT'
+[Unit]
+Description=Sprinkler API (Phase 1 status endpoint)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/srv/sprinkler
+ExecStart=/srv/sprinkler/.venv/bin/uvicorn app:app --host 0.0.0.0 --port 8000
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+# Enable & start
+sudo systemctl daemon-reload
+sudo systemctl enable --now sprinkler.service
+sudo systemctl status sprinkler.service --no-pager
+```
+
+Notes
+- No CORS config needed for native iOS apps.
+- If you prefer Flask, return any 200 JSON object at /api/status.
+- Keep port 8000 unless you also change the app’s default Base URL.
