@@ -9,21 +9,19 @@
 /* Begin PBXBuildFile section */
 		621360F02E7C8AE30094E4D2 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 621360EF2E7C8AE30094E4D2 /* LaunchScreen.storyboard */; };
 		621360F32E7C8C730094E4D2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 621360F22E7C8C730094E4D2 /* Assets.xcassets */; };
-		621360F42E7C8C7E0094E4D2 /* Assets.xcassets in Sources */ = {isa = PBXBuildFile; fileRef = 621360F22E7C8C730094E4D2 /* Assets.xcassets */; };
+                621360F42E7C8C7E0094E4D2 /* Assets.xcassets in Sources */ = {isa = PBXBuildFile; fileRef = 621360F22E7C8C730094E4D2 /* Assets.xcassets */; };
+                621360F52E7D2B7C0094E4D2 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 621360F62E7D2B7C0094E4D2 /* XCTest.framework */; };
 		6251FB8F2E7C7DCF001856FD /* RainDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB662E7C7DCF001856FD /* RainDTO.swift */; };
 		6251FB902E7C7DCF001856FD /* ConnectivityBadgeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB7E2E7C7DCF001856FD /* ConnectivityBadgeView.swift */; };
 		6251FB912E7C7DCF001856FD /* SkeletonView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB782E7C7DCF001856FD /* SkeletonView.swift */; };
-		6251FB922E7C7DCF001856FD /* HealthCheckerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB8C2E7C7DCF001856FD /* HealthCheckerTests.swift */; };
 		6251FB932E7C7DCF001856FD /* HTTPClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB642E7C7DCF001856FD /* HTTPClient.swift */; };
 		6251FB942E7C7DCF001856FD /* BonjourDiscoveryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB712E7C7DCF001856FD /* BonjourDiscoveryService.swift */; };
-		6251FB952E7C7DCF001856FD /* ConnectivityStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB8B2E7C7DCF001856FD /* ConnectivityStoreTests.swift */; };
 		6251FB962E7C7DCF001856FD /* StatusDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB6B2E7C7DCF001856FD /* StatusDTO.swift */; };
 		6251FB972E7C7DCF001856FD /* KeychainStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB772E7C7DCF001856FD /* KeychainStorage.swift */; };
 		6251FB982E7C7DCF001856FD /* ConnectivityStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB742E7C7DCF001856FD /* ConnectivityStore.swift */; };
 		6251FB992E7C7DCF001856FD /* PinsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB812E7C7DCF001856FD /* PinsListView.swift */; };
 		6251FB9A2E7C7DCF001856FD /* Toast.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB792E7C7DCF001856FD /* Toast.swift */; };
 		6251FB9B2E7C7DCF001856FD /* EmptyResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB622E7C7DCF001856FD /* EmptyResponse.swift */; };
-		6251FB9C2E7C7DCF001856FD /* BonjourDiscoveryServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB8A2E7C7DCF001856FD /* BonjourDiscoveryServiceTests.swift */; };
 		6251FB9D2E7C7DCF001856FD /* PinRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB802E7C7DCF001856FD /* PinRowView.swift */; };
 		6251FB9E2E7C7DCF001856FD /* Validators.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB7A2E7C7DCF001856FD /* Validators.swift */; };
 		6251FB9F2E7C7DCF001856FD /* SprinklerMobileApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB882E7C7DCF001856FD /* SprinklerMobileApp.swift */; };
@@ -45,13 +43,17 @@
 		6251FBAF2E7C7DCF001856FD /* DiscoveryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB7C2E7C7DCF001856FD /* DiscoveryViewModel.swift */; };
 		6251FBB02E7C7DCF001856FD /* ScheduleDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB672E7C7DCF001856FD /* ScheduleDraft.swift */; };
 		6251FBB12E7C7DCF001856FD /* RainCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB822E7C7DCF001856FD /* RainCardView.swift */; };
-		6251FBB22E7C7DCF001856FD /* APIError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB612E7C7DCF001856FD /* APIError.swift */; };
+                6251FBB22E7C7DCF001856FD /* APIError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB612E7C7DCF001856FD /* APIError.swift */; };
+                62B7CE0A2E8A3F7B001A2B66 /* BonjourDiscoveryServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB8A2E7C7DCF001856FD /* BonjourDiscoveryServiceTests.swift */; };
+                62B7CE0B2E8A3F7B001A2B66 /* ConnectivityStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB8B2E7C7DCF001856FD /* ConnectivityStoreTests.swift */; };
+                62B7CE0C2E8A3F7B001A2B66 /* HealthCheckerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB8C2E7C7DCF001856FD /* HealthCheckerTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		621360EF2E7C8AE30094E4D2 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
-		621360F22E7C8C730094E4D2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		6251FB422E7C7D3F001856FD /* Sprink.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sprink.app; sourceTree = BUILT_PRODUCTS_DIR; };
+                621360EF2E7C8AE30094E4D2 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+                621360F22E7C8C730094E4D2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+                621360F62E7D2B7C0094E4D2 /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = Platforms/iPhoneOS.platform/Developer/Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; };
+                6251FB422E7C7D3F001856FD /* Sprink.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sprink.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6251FB5E2E7C7DCF001856FD /* Package.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Package.swift; sourceTree = "<group>"; };
 		6251FB5F2E7C7DCF001856FD /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		6251FB602E7C7DCF001856FD /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
@@ -89,38 +91,50 @@
 		6251FB882E7C7DCF001856FD /* SprinklerMobileApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SprinklerMobileApp.swift; sourceTree = "<group>"; };
 		6251FB8A2E7C7DCF001856FD /* BonjourDiscoveryServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BonjourDiscoveryServiceTests.swift; sourceTree = "<group>"; };
 		6251FB8B2E7C7DCF001856FD /* ConnectivityStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectivityStoreTests.swift; sourceTree = "<group>"; };
-		6251FB8C2E7C7DCF001856FD /* HealthCheckerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthCheckerTests.swift; sourceTree = "<group>"; };
+                6251FB8C2E7C7DCF001856FD /* HealthCheckerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthCheckerTests.swift; sourceTree = "<group>"; };
+                62B7CE072E8A3F2B001A2B66 /* SprinklerConnectivityTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SprinklerConnectivityTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+                62B7CE092E8A3F5D001A2B66 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		6251FB3F2E7C7D3F001856FD /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
+                6251FB3F2E7C7D3F001856FD /* Frameworks */ = {
+                        isa = PBXFrameworksBuildPhase;
+                        buildActionMask = 2147483647;
+                        files = (
+                        );
+                        runOnlyForDeploymentPostprocessing = 0;
+                };
+                62B7CE042E8A3F2B001A2B66 /* Frameworks */ = {
+                        isa = PBXFrameworksBuildPhase;
+                        buildActionMask = 2147483647;
+                        files = (
+                                621360F52E7D2B7C0094E4D2 /* XCTest.framework in Frameworks */,
+                        );
+                        runOnlyForDeploymentPostprocessing = 0;
+                };
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		6251FB392E7C7D3F001856FD = {
 			isa = PBXGroup;
 			children = (
-				621360F22E7C8C730094E4D2 /* Assets.xcassets */,
-				621360EF2E7C8AE30094E4D2 /* LaunchScreen.storyboard */,
-				6251FB5E2E7C7DCF001856FD /* Package.swift */,
-				6251FB5F2E7C7DCF001856FD /* README.md */,
-				6251FB892E7C7DCF001856FD /* SprinklerMobile */,
-				6251FB8E2E7C7DCF001856FD /* Tests */,
-				6251FB432E7C7D3F001856FD /* Products */,
+                                621360F22E7C8C730094E4D2 /* Assets.xcassets */,
+                                621360EF2E7C8AE30094E4D2 /* LaunchScreen.storyboard */,
+                                6251FB5E2E7C7DCF001856FD /* Package.swift */,
+                                6251FB5F2E7C7DCF001856FD /* README.md */,
+                                621360F62E7D2B7C0094E4D2 /* XCTest.framework */,
+                                6251FB892E7C7DCF001856FD /* SprinklerMobile */,
+                                6251FB8E2E7C7DCF001856FD /* Tests */,
+                                6251FB432E7C7D3F001856FD /* Products */,
 			);
 			sourceTree = "<group>";
 		};
 		6251FB432E7C7D3F001856FD /* Products */ = {
 			isa = PBXGroup;
-			children = (
-				6251FB422E7C7D3F001856FD /* Sprink.app */,
-			);
+                        children = (
+                                6251FB422E7C7D3F001856FD /* Sprink.app */,
+                                62B7CE072E8A3F2B001A2B66 /* SprinklerConnectivityTests.xctest */,
+                        );
 			name = Products;
 			sourceTree = "<group>";
 		};
@@ -230,11 +244,12 @@
 		};
 		6251FB8D2E7C7DCF001856FD /* SprinklerConnectivityTests */ = {
 			isa = PBXGroup;
-			children = (
-				6251FB8A2E7C7DCF001856FD /* BonjourDiscoveryServiceTests.swift */,
-				6251FB8B2E7C7DCF001856FD /* ConnectivityStoreTests.swift */,
-				6251FB8C2E7C7DCF001856FD /* HealthCheckerTests.swift */,
-			);
+                        children = (
+                                6251FB8A2E7C7DCF001856FD /* BonjourDiscoveryServiceTests.swift */,
+                                6251FB8B2E7C7DCF001856FD /* ConnectivityStoreTests.swift */,
+                                6251FB8C2E7C7DCF001856FD /* HealthCheckerTests.swift */,
+                                62B7CE092E8A3F5D001A2B66 /* Info.plist */,
+                        );
 			path = SprinklerConnectivityTests;
 			sourceTree = "<group>";
 		};
@@ -249,11 +264,11 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		6251FB412E7C7D3F001856FD /* Sprink */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 6251FB4D2E7C7D42001856FD /* Build configuration list for PBXNativeTarget "Sprink" */;
-			buildPhases = (
-				6251FB3E2E7C7D3F001856FD /* Sources */,
+                6251FB412E7C7D3F001856FD /* Sprink */ = {
+                        isa = PBXNativeTarget;
+                        buildConfigurationList = 6251FB4D2E7C7D42001856FD /* Build configuration list for PBXNativeTarget "Sprink" */;
+                        buildPhases = (
+                                6251FB3E2E7C7D3F001856FD /* Sources */,
 				6251FB3F2E7C7D3F001856FD /* Frameworks */,
 				6251FB402E7C7D3F001856FD /* Resources */,
 			);
@@ -265,9 +280,27 @@
 			packageProductDependencies = (
 			);
 			productName = Sprink;
-			productReference = 6251FB422E7C7D3F001856FD /* Sprink.app */;
-			productType = "com.apple.product-type.application";
-		};
+                        productReference = 6251FB422E7C7D3F001856FD /* Sprink.app */;
+                        productType = "com.apple.product-type.application";
+                };
+                62B7CE032E8A3F2B001A2B66 /* SprinklerConnectivityTests */ = {
+                        isa = PBXNativeTarget;
+                        buildConfigurationList = 62B7CE0F2E8A3F7B001A2B66 /* Build configuration list for PBXNativeTarget "SprinklerConnectivityTests" */;
+                        buildPhases = (
+                                62B7CE052E8A3F2B001A2B66 /* Sources */,
+                                62B7CE042E8A3F2B001A2B66 /* Frameworks */,
+                                62B7CE062E8A3F2B001A2B66 /* Resources */,
+                        );
+                        buildRules = (
+                        );
+                        dependencies = (
+                                62B7CE0E2E8A3F7B001A2B66 /* PBXTargetDependency */,
+                        );
+                        name = SprinklerConnectivityTests;
+                        productName = SprinklerConnectivityTests;
+                        productReference = 62B7CE072E8A3F2B001A2B66 /* SprinklerConnectivityTests.xctest */;
+                        productType = "com.apple.product-type.bundle.unit-test";
+                };
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -277,11 +310,15 @@
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1640;
 				LastUpgradeCheck = 1640;
-				TargetAttributes = {
-					6251FB412E7C7D3F001856FD = {
-						CreatedOnToolsVersion = 16.4;
-					};
-				};
+                                TargetAttributes = {
+                                        6251FB412E7C7D3F001856FD = {
+                                                CreatedOnToolsVersion = 16.4;
+                                        };
+                                        62B7CE032E8A3F2B001A2B66 = {
+                                                CreatedOnToolsVersion = 16.4;
+                                                ProvisioningStyle = Automatic;
+                                        };
+                                };
 			};
 			buildConfigurationList = 6251FB3D2E7C7D3F001856FD /* Build configuration list for PBXProject "Sprink" */;
 			developmentRegion = en;
@@ -296,44 +333,67 @@
 			productRefGroup = 6251FB432E7C7D3F001856FD /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
-			targets = (
-				6251FB412E7C7D3F001856FD /* Sprink */,
-			);
+                        targets = (
+                                6251FB412E7C7D3F001856FD /* Sprink */,
+                                62B7CE032E8A3F2B001A2B66 /* SprinklerConnectivityTests */,
+                        );
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		6251FB402E7C7D3F001856FD /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				621360F32E7C8C730094E4D2 /* Assets.xcassets in Resources */,
-				621360F02E7C8AE30094E4D2 /* LaunchScreen.storyboard in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
+                6251FB402E7C7D3F001856FD /* Resources */ = {
+                        isa = PBXResourcesBuildPhase;
+                        buildActionMask = 2147483647;
+                        files = (
+                                621360F32E7C8C730094E4D2 /* Assets.xcassets in Resources */,
+                                621360F02E7C8AE30094E4D2 /* LaunchScreen.storyboard in Resources */,
+                        );
+                        runOnlyForDeploymentPostprocessing = 0;
+                };
+                62B7CE062E8A3F2B001A2B66 /* Resources */ = {
+                        isa = PBXResourcesBuildPhase;
+                        buildActionMask = 2147483647;
+                        files = (
+                        );
+                        runOnlyForDeploymentPostprocessing = 0;
+                };
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXContainerItemProxy section */
+                62B7CE0D2E8A3F7B001A2B66 /* PBXContainerItemProxy */ = {
+                        isa = PBXContainerItemProxy;
+                        containerPortal = 6251FB3A2E7C7D3F001856FD /* Project object */;
+                        proxyType = 1;
+                        remoteGlobalIDString = 6251FB412E7C7D3F001856FD;
+                        remoteInfo = Sprink;
+                };
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+                62B7CE0E2E8A3F7B001A2B66 /* PBXTargetDependency */ = {
+                        isa = PBXTargetDependency;
+                        target = 6251FB412E7C7D3F001856FD /* Sprink */;
+                        targetProxy = 62B7CE0D2E8A3F7B001A2B66 /* PBXContainerItemProxy */;
+                };
+/* End PBXTargetDependency section */
+
 /* Begin PBXSourcesBuildPhase section */
-		6251FB3E2E7C7D3F001856FD /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				621360F42E7C8C7E0094E4D2 /* Assets.xcassets in Sources */,
+                6251FB3E2E7C7D3F001856FD /* Sources */ = {
+                        isa = PBXSourcesBuildPhase;
+                        buildActionMask = 2147483647;
+                        files = (
+                                621360F42E7C8C7E0094E4D2 /* Assets.xcassets in Sources */,
 				6251FB8F2E7C7DCF001856FD /* RainDTO.swift in Sources */,
 				6251FB902E7C7DCF001856FD /* ConnectivityBadgeView.swift in Sources */,
 				6251FB912E7C7DCF001856FD /* SkeletonView.swift in Sources */,
-				6251FB922E7C7DCF001856FD /* HealthCheckerTests.swift in Sources */,
 				6251FB932E7C7DCF001856FD /* HTTPClient.swift in Sources */,
 				6251FB942E7C7DCF001856FD /* BonjourDiscoveryService.swift in Sources */,
-				6251FB952E7C7DCF001856FD /* ConnectivityStoreTests.swift in Sources */,
 				6251FB962E7C7DCF001856FD /* StatusDTO.swift in Sources */,
 				6251FB972E7C7DCF001856FD /* KeychainStorage.swift in Sources */,
 				6251FB982E7C7DCF001856FD /* ConnectivityStore.swift in Sources */,
 				6251FB992E7C7DCF001856FD /* PinsListView.swift in Sources */,
 				6251FB9A2E7C7DCF001856FD /* Toast.swift in Sources */,
 				6251FB9B2E7C7DCF001856FD /* EmptyResponse.swift in Sources */,
-				6251FB9C2E7C7DCF001856FD /* BonjourDiscoveryServiceTests.swift in Sources */,
 				6251FB9D2E7C7DCF001856FD /* PinRowView.swift in Sources */,
 				6251FB9E2E7C7DCF001856FD /* Validators.swift in Sources */,
 				6251FB9F2E7C7DCF001856FD /* SprinklerMobileApp.swift in Sources */,
@@ -354,11 +414,21 @@
 				6251FBAE2E7C7DCF001856FD /* ScheduleGroupDTO.swift in Sources */,
 				6251FBAF2E7C7DCF001856FD /* DiscoveryViewModel.swift in Sources */,
 				6251FBB02E7C7DCF001856FD /* ScheduleDraft.swift in Sources */,
-				6251FBB12E7C7DCF001856FD /* RainCardView.swift in Sources */,
-				6251FBB22E7C7DCF001856FD /* APIError.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
+                                6251FBB12E7C7DCF001856FD /* RainCardView.swift in Sources */,
+                                6251FBB22E7C7DCF001856FD /* APIError.swift in Sources */,
+                        );
+                        runOnlyForDeploymentPostprocessing = 0;
+                };
+                62B7CE052E8A3F2B001A2B66 /* Sources */ = {
+                        isa = PBXSourcesBuildPhase;
+                        buildActionMask = 2147483647;
+                        files = (
+                                62B7CE0A2E8A3F7B001A2B66 /* BonjourDiscoveryServiceTests.swift in Sources */,
+                                62B7CE0B2E8A3F7B001A2B66 /* ConnectivityStoreTests.swift in Sources */,
+                                62B7CE0C2E8A3F7B001A2B66 /* HealthCheckerTests.swift in Sources */,
+                        );
+                        runOnlyForDeploymentPostprocessing = 0;
+                };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
@@ -514,35 +584,80 @@
 			};
 			name = Debug;
 		};
-		6251FB4F2E7C7D42001856FD /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 3942HSRK87;
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = SprinklerMobile/Resources/Info.plist;
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = io.sprink.sprink.Sprink;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Release;
-		};
+                6251FB4F2E7C7D42001856FD /* Release */ = {
+                        isa = XCBuildConfiguration;
+                        buildSettings = {
+                                ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+                                ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+                                CODE_SIGN_STYLE = Automatic;
+                                CURRENT_PROJECT_VERSION = 1;
+                                DEVELOPMENT_TEAM = 3942HSRK87;
+                                ENABLE_PREVIEWS = YES;
+                                GENERATE_INFOPLIST_FILE = NO;
+                                INFOPLIST_FILE = SprinklerMobile/Resources/Info.plist;
+                                INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+                                INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+                                INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+                                INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+                                INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+                                LD_RUNPATH_SEARCH_PATHS = (
+                                        "$(inherited)",
+                                        "@executable_path/Frameworks",
+                                );
+                                MARKETING_VERSION = 1.0;
+                                PRODUCT_BUNDLE_IDENTIFIER = io.sprink.sprink.Sprink;
+                                PRODUCT_NAME = "$(TARGET_NAME)";
+                                SWIFT_EMIT_LOC_STRINGS = YES;
+                                SWIFT_VERSION = 5.0;
+                                TARGETED_DEVICE_FAMILY = "1,2";
+                        };
+                        name = Release;
+                };
+                62B7CE102E8A3F7B001A2B66 /* Debug */ = {
+                        isa = XCBuildConfiguration;
+                        buildSettings = {
+                                ALWAYS_SEARCH_USER_PATHS = NO;
+                                CLANG_ENABLE_MODULES = YES;
+                                CODE_SIGN_STYLE = Automatic;
+                                CURRENT_PROJECT_VERSION = 1;
+                                DEVELOPMENT_TEAM = 3942HSRK87;
+                                GENERATE_INFOPLIST_FILE = NO;
+                                INFOPLIST_FILE = Tests/SprinklerConnectivityTests/Info.plist;
+                                IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+                                LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+                                PRODUCT_BUNDLE_IDENTIFIER = com.tylerbuell.SprinklerConnectivityTests;
+                                PRODUCT_NAME = "$(TARGET_NAME)";
+                                SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+                                SWIFT_VERSION = 5.0;
+                                TARGETED_DEVICE_FAMILY = "1,2";
+                                TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Sprink.app/Sprink";
+                                BUNDLE_LOADER = "$(TEST_HOST)";
+                                VERSIONING_SYSTEM = "apple-generic";
+                        };
+                        name = Debug;
+                };
+                62B7CE112E8A3F7B001A2B66 /* Release */ = {
+                        isa = XCBuildConfiguration;
+                        buildSettings = {
+                                ALWAYS_SEARCH_USER_PATHS = NO;
+                                CLANG_ENABLE_MODULES = YES;
+                                CODE_SIGN_STYLE = Automatic;
+                                CURRENT_PROJECT_VERSION = 1;
+                                DEVELOPMENT_TEAM = 3942HSRK87;
+                                GENERATE_INFOPLIST_FILE = NO;
+                                INFOPLIST_FILE = Tests/SprinklerConnectivityTests/Info.plist;
+                                IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+                                LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+                                PRODUCT_BUNDLE_IDENTIFIER = com.tylerbuell.SprinklerConnectivityTests;
+                                PRODUCT_NAME = "$(TARGET_NAME)";
+                                SWIFT_VERSION = 5.0;
+                                TARGETED_DEVICE_FAMILY = "1,2";
+                                TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Sprink.app/Sprink";
+                                BUNDLE_LOADER = "$(TEST_HOST)";
+                                VERSIONING_SYSTEM = "apple-generic";
+                        };
+                        name = Release;
+                };
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -555,15 +670,24 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		6251FB4D2E7C7D42001856FD /* Build configuration list for PBXNativeTarget "Sprink" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				6251FB4E2E7C7D42001856FD /* Debug */,
-				6251FB4F2E7C7D42001856FD /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
+                6251FB4D2E7C7D42001856FD /* Build configuration list for PBXNativeTarget "Sprink" */ = {
+                        isa = XCConfigurationList;
+                        buildConfigurations = (
+                                6251FB4E2E7C7D42001856FD /* Debug */,
+                                6251FB4F2E7C7D42001856FD /* Release */,
+                        );
+                        defaultConfigurationIsVisible = 0;
+                        defaultConfigurationName = Release;
+                };
+                62B7CE0F2E8A3F7B001A2B66 /* Build configuration list for PBXNativeTarget "SprinklerConnectivityTests" */ = {
+                        isa = XCConfigurationList;
+                        buildConfigurations = (
+                                62B7CE102E8A3F7B001A2B66 /* Debug */,
+                                62B7CE112E8A3F7B001A2B66 /* Release */,
+                        );
+                        defaultConfigurationIsVisible = 0;
+                        defaultConfigurationName = Release;
+                };
 /* End XCConfigurationList section */
 	};
 	rootObject = 6251FB3A2E7C7D3F001856FD /* Project object */;
