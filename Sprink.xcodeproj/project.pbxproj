@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		621360F02E7C8AE30094E4D2 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 621360EF2E7C8AE30094E4D2 /* LaunchScreen.storyboard */; };
+		621360F32E7C8C730094E4D2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 621360F22E7C8C730094E4D2 /* Assets.xcassets */; };
+		621360F42E7C8C7E0094E4D2 /* Assets.xcassets in Sources */ = {isa = PBXBuildFile; fileRef = 621360F22E7C8C730094E4D2 /* Assets.xcassets */; };
 		6251FB8F2E7C7DCF001856FD /* RainDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB662E7C7DCF001856FD /* RainDTO.swift */; };
 		6251FB902E7C7DCF001856FD /* ConnectivityBadgeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB7E2E7C7DCF001856FD /* ConnectivityBadgeView.swift */; };
 		6251FB912E7C7DCF001856FD /* SkeletonView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB782E7C7DCF001856FD /* SkeletonView.swift */; };
@@ -46,6 +49,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		621360EF2E7C8AE30094E4D2 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		621360F22E7C8C730094E4D2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		6251FB422E7C7D3F001856FD /* Sprink.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sprink.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6251FB5E2E7C7DCF001856FD /* Package.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Package.swift; sourceTree = "<group>"; };
 		6251FB5F2E7C7DCF001856FD /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
@@ -101,6 +106,8 @@
 		6251FB392E7C7D3F001856FD = {
 			isa = PBXGroup;
 			children = (
+				621360F22E7C8C730094E4D2 /* Assets.xcassets */,
+				621360EF2E7C8AE30094E4D2 /* LaunchScreen.storyboard */,
 				6251FB5E2E7C7DCF001856FD /* Package.swift */,
 				6251FB5F2E7C7DCF001856FD /* README.md */,
 				6251FB892E7C7DCF001856FD /* SprinklerMobile */,
@@ -300,6 +307,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				621360F32E7C8C730094E4D2 /* Assets.xcassets in Resources */,
+				621360F02E7C8AE30094E4D2 /* LaunchScreen.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -310,6 +319,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				621360F42E7C8C7E0094E4D2 /* Assets.xcassets in Sources */,
 				6251FB8F2E7C7DCF001856FD /* RainDTO.swift in Sources */,
 				6251FB902E7C7DCF001856FD /* ConnectivityBadgeView.swift in Sources */,
 				6251FB912E7C7DCF001856FD /* SkeletonView.swift in Sources */,
