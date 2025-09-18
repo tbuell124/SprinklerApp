@@ -268,6 +268,17 @@ journalctl -u sprinkler.service -f
 Once all are checked, you now have a “set it and forget it” sprinkler controller!
 
 8. Troubleshooting
+
+### Build Errors
+
+If you see “Cannot find type ConnectivityStore / DiscoveryViewModel / DiscoveredDevice”, ensure the files exist at:
+
+- `SprinklerMobile/Store/ConnectivityStore.swift`
+- `SprinklerMobile/Services/BonjourDiscoveryService.swift`
+- `SprinklerMobile/ViewModels/DiscoveryViewModel.swift`
+
+and that each file’s Target Membership includes **Sprink!**. After making changes, run **Product → Clean Build Folder** (Shift+Cmd+K) and then build again.
+
 Issue	Likely Cause	Solution
 curl works on Pi but not iPhone	Firewall or network isolation	Check UFW, router settings
 ModuleNotFoundError: sprinkler	Missing or misplaced sprinkler/app.py	Ensure correct folder structure

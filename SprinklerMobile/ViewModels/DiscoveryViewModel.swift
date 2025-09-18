@@ -1,86 +1,78 @@
 import Foundation
+#if canImport(Combine)
 import Combine
+#endif
 
+#if !canImport(SwiftUI)
+@propertyWrapper
+struct Published<Value> {
+    var wrappedValue: Value
+    init(wrappedValue: Value) { self.wrappedValue = wrappedValue }
+    var projectedValue: Published<Value> { self }
+}
+
+protocol ObservableObject {}
+#endif
+
+#if canImport(Combine)
 @MainActor
 final class DiscoveryViewModel: ObservableObject {
-    @Published private(set) var devices: [DiscoveredDevice] = []
-    @Published private(set) var isBrowsing: Bool = false
+    @Published var devices: [DiscoveredDevice] = []
+    @Published var isBrowsing: Bool = false
     @Published var errorMessage: String?
 
-    private let discoveryService: BonjourDiscoveryProviding
-    private var cancellables: Set<AnyCancellable> = []
-    private weak var connectivityStore: ConnectivityStore?
-    private var hasStarted = false
+    private let service: BonjourDiscoveryProviding
+    private var cancellables = Set<AnyCancellable>()
 
-    init(discoveryService: BonjourDiscoveryProviding = BonjourDiscoveryService()) {
-        self.discoveryService = discoveryService
-        observeDiscoveryUpdates()
-    }
-
-    func attach(connectivityStore: ConnectivityStore) {
-        self.connectivityStore = connectivityStore
+    init(service: BonjourDiscoveryProviding = BonjourDiscoveryService()) {
+        self.service = service
+        service.devicesPublisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] in self?.devices = $0 }
+            .store(in: &cancellables)
     }
 
     func start() {
-        guard !hasStarted else { return }
-        hasStarted = true
-        errorMessage = nil
         isBrowsing = true
-        discoveryService.start()
+        service.start()
     }
 
     func refresh() {
-        errorMessage = nil
         isBrowsing = true
-        discoveryService.refresh()
+        service.refresh()
     }
 
     func stop() {
-        discoveryService.stop()
         isBrowsing = false
-        hasStarted = false
-    }
-
-    func select(device: DiscoveredDevice) {
-        guard let store = connectivityStore else { return }
-        store.baseURLString = device.baseURLString
-        Task { await store.testConnection() }
-    }
-
-    // MARK: Private helpers
-
-    private func observeDiscoveryUpdates() {
-        discoveryService.devicesPublisher
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] devices in
-                self?.devices = devices
-            }
-            .store(in: &cancellables)
-
-        if let statusPublisher = (discoveryService as? BonjourDiscoveryStatusPublishing)?.statusPublisher {
-            statusPublisher
-                .receive(on: DispatchQueue.main)
-                .sink { [weak self] status in
-                    self?.handle(status: status)
-                }
-                .store(in: &cancellables)
-        }
-    }
-
-    private func handle(status: BonjourDiscoveryStatus) {
-        switch status {
-        case .idle:
-            isBrowsing = false
-        case .browsing:
-            isBrowsing = true
-        case let .failed(error):
-            isBrowsing = false
-            switch error {
-            case .permissionDenied:
-                errorMessage = "Local Network permission is required to find devices. You can enter a URL manually, or enable local network access in Settings."
-            case let .underlying(message):
-                errorMessage = message
-            }
-        }
+        service.stop()
     }
 }
+#else
+@MainActor
+final class DiscoveryViewModel: ObservableObject {
+    @Published var devices: [DiscoveredDevice] = []
+    @Published var isBrowsing: Bool = false
+    @Published var errorMessage: String?
+
+    private let service: BonjourDiscoveryProviding
+
+    init(service: BonjourDiscoveryProviding = BonjourDiscoveryService()) {
+        self.service = service
+    }
+
+    func start() {
+        isBrowsing = true
+        service.start()
+    }
+
+    func refresh() {
+        isBrowsing = true
+        service.refresh()
+    }
+
+    func stop() {
+        isBrowsing = false
+        service.stop()
+    }
+}
+#endif
