@@ -59,6 +59,8 @@ final class HTTPClient {
     private let cache: URLCache
     private let maxRetries: Int
     private let initialRetryDelay: TimeInterval
+    /// Optional dependency that supplies authorization headers for authenticated calls.
+    private let authenticationProvider: AuthenticationProviding?
 
     /// RFC 1123 formatter used to parse `Retry-After` headers expressed as HTTP dates.
     private static let retryAfterDateFormatter: DateFormatter = {
@@ -72,7 +74,8 @@ final class HTTPClient {
     init(sessionConfiguration: URLSessionConfiguration = .default,
          cache: URLCache = HTTPClient.makeDefaultCache(),
          maxRetries: Int = 2,
-         initialRetryDelay: TimeInterval = 0.5) {
+         initialRetryDelay: TimeInterval = 0.5,
+         authenticationProvider: AuthenticationProviding? = nil) {
         let configuration = sessionConfiguration
         configuration.timeoutIntervalForRequest = 8
         configuration.timeoutIntervalForResource = 8
@@ -90,6 +93,7 @@ final class HTTPClient {
         self.cache = cache
         self.maxRetries = maxRetries
         self.initialRetryDelay = initialRetryDelay
+        self.authenticationProvider = authenticationProvider
 
         decoder.dateDecodingStrategy = .custom { decoder in
             let container = try decoder.singleValueContainer()
@@ -143,6 +147,11 @@ final class HTTPClient {
         request.cachePolicy = endpoint.cachePolicy ?? (endpoint.method == .get ? .useProtocolCachePolicy : .reloadIgnoringLocalCacheData)
 
         var headers = endpoint.headers
+        if let authProvider = authenticationProvider,
+           let authorization = await authProvider.authorizationHeader(),
+           headers[authorization.key] == nil {
+            headers[authorization.key] = authorization.value
+        }
         if bodyData != nil {
             headers["Content-Type"] = headers["Content-Type"] ?? "application/json"
         }

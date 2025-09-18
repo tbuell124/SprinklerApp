@@ -2,20 +2,33 @@ import Foundation
 
 /// Concurrency-safe gateway to the sprinkler controller REST API.
 ///
-/// The client keeps track of the currently selected base URL and exposes high-level
-/// domain operations that the store consumes. All low-level request work is delegated to
-/// `HTTPClient`.
+/// The client keeps track of the currently selected base URL, manages authentication tokens and exposes high-level
+/// domain operations that the store consumes. All low-level request work is delegated to `HTTPClient`.
 actor APIClient {
     private var baseURL: URL?
     private let httpClient: HTTPClient
+    private let authentication: AuthenticationManaging
 
-    init(baseURL: URL? = nil, httpClient: HTTPClient = HTTPClient()) {
+    init(baseURL: URL? = nil,
+         authentication: AuthenticationManaging = AuthenticationController(),
+         httpClient: HTTPClient? = nil) {
         self.baseURL = baseURL
-        self.httpClient = httpClient
+        self.authentication = authentication
+        self.httpClient = httpClient ?? HTTPClient(authenticationProvider: authentication)
     }
 
     func updateBaseURL(_ url: URL?) {
         self.baseURL = url
+    }
+
+    /// Updates the persisted authentication token so subsequent requests include the proper Authorization header.
+    func updateAuthenticationToken(_ token: String?) async throws {
+        try await authentication.updateToken(token)
+    }
+
+    /// Exposes the currently stored token for diagnostics or settings screens.
+    func currentAuthenticationToken() async -> String? {
+        await authentication.currentToken()
     }
 
     func fetchStatus() async throws -> StatusDTO {

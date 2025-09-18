@@ -39,8 +39,9 @@
 		6251FBAE2E7C7DCF001856FD /* ScheduleGroupDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB692E7C7DCF001856FD /* ScheduleGroupDTO.swift */; };
 		6251FBAF2E7C7DCF001856FD /* DiscoveryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB7C2E7C7DCF001856FD /* DiscoveryViewModel.swift */; };
 		6251FBB02E7C7DCF001856FD /* ScheduleDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB672E7C7DCF001856FD /* ScheduleDraft.swift */; };
-		6251FBB12E7C7DCF001856FD /* RainCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB822E7C7DCF001856FD /* RainCardView.swift */; };
-		6251FBB22E7C7DCF001856FD /* APIError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB612E7C7DCF001856FD /* APIError.swift */; };
+                6251FBB12E7C7DCF001856FD /* RainCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB822E7C7DCF001856FD /* RainCardView.swift */; };
+                6251FBB22E7C7DCF001856FD /* APIError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB612E7C7DCF001856FD /* APIError.swift */; };
+                6251FBB32E7C7DCF001856FD /* AuthenticationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FBB42E7C7DCF001856FD /* AuthenticationController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -84,7 +85,8 @@
 		6251FB882E7C7DCF001856FD /* SprinklerMobileApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SprinklerMobileApp.swift; sourceTree = "<group>"; };
 		6251FB8A2E7C7DCF001856FD /* BonjourDiscoveryServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BonjourDiscoveryServiceTests.swift; sourceTree = "<group>"; };
 		6251FB8B2E7C7DCF001856FD /* ConnectivityStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectivityStoreTests.swift; sourceTree = "<group>"; };
-		6251FB8C2E7C7DCF001856FD /* HealthCheckerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthCheckerTests.swift; sourceTree = "<group>"; };
+                6251FB8C2E7C7DCF001856FD /* HealthCheckerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthCheckerTests.swift; sourceTree = "<group>"; };
+                6251FBB42E7C7DCF001856FD /* AuthenticationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticationController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -117,11 +119,12 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		6251FB6C2E7C7DCF001856FD /* Data */ = {
-			isa = PBXGroup;
-			children = (
-				6251FB602E7C7DCF001856FD /* APIClient.swift */,
-				6251FB612E7C7DCF001856FD /* APIError.swift */,
+                6251FB6C2E7C7DCF001856FD /* Data */ = {
+                        isa = PBXGroup;
+                        children = (
+                                6251FBB42E7C7DCF001856FD /* AuthenticationController.swift */,
+                                6251FB602E7C7DCF001856FD /* APIClient.swift */,
+                                6251FB612E7C7DCF001856FD /* APIError.swift */,
 				6251FB622E7C7DCF001856FD /* EmptyResponse.swift */,
 				6251FB632E7C7DCF001856FD /* GPIOCatalog.swift */,
 				6251FB642E7C7DCF001856FD /* HTTPClient.swift */,
@@ -344,8 +347,9 @@
 				6251FBAE2E7C7DCF001856FD /* ScheduleGroupDTO.swift in Sources */,
 				6251FBAF2E7C7DCF001856FD /* DiscoveryViewModel.swift in Sources */,
 				6251FBB02E7C7DCF001856FD /* ScheduleDraft.swift in Sources */,
-				6251FBB12E7C7DCF001856FD /* RainCardView.swift in Sources */,
-				6251FBB22E7C7DCF001856FD /* APIError.swift in Sources */,
+                            6251FBB12E7C7DCF001856FD /* RainCardView.swift in Sources */,
+                            6251FBB22E7C7DCF001856FD /* APIError.swift in Sources */,
+                            6251FBB32E7C7DCF001856FD /* AuthenticationController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
