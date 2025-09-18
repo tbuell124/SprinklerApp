@@ -403,3 +403,49 @@ dns-sd -L <ServiceName> _sprinkler._tcp local
 
 - Keep the port in the service file in sync with your API server (Phase 1 default: 8000).
 - The iOS app filters for services whose name or host contains “sprinkler”.
+
+## Project Structure Update
+The app now supports automatic discovery and connectivity checks.
+
+**New folders:**
+- `Models/` — Core data models like `DiscoveredDevice`.
+- `Services/` — Background services such as `BonjourDiscoveryService` and `HealthChecker`.
+- `ViewModels/` — ViewModels for bridging services to SwiftUI views.
+- `Stores/` — Persistent app-level state like `ConnectivityStore`.
+
+## Bonjour/mDNS Setup on Raspberry Pi
+To advertise the sprinkler controller for discovery, install Avahi:
+
+```bash
+sudo apt update
+sudo apt install -y avahi-daemon avahi-utils
+```
+
+Create service file at `/etc/avahi/services/sprinkler.service`:
+
+```xml
+<?xml version="1.0" standalone='no'?>
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+<service-group>
+  <name replace-wildcards="yes">%h</name>
+  <service>
+    <type>_sprinkler._tcp</type>
+    <port>8000</port>
+    <txt-record>path=/api/status</txt-record>
+  </service>
+</service-group>
+```
+
+Then restart:
+
+```bash
+sudo systemctl restart avahi-daemon
+```
+
+Verify:
+
+```bash
+dns-sd -B _sprinkler._tcp
+```
+
+---
