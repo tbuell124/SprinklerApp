@@ -347,3 +347,48 @@ Notes
 - No CORS config needed for native iOS apps.
 - If you prefer Flask, return any 200 JSON object at /api/status.
 - Keep port 8000 unless you also change the app’s default Base URL.
+
+## Bonjour/mDNS Advertising (Phase 2)
+
+To enable auto-discovery, the Raspberry Pi should advertise a Bonjour service. We recommend a custom service _sprinkler._tcp. on the same port used by your API (e.g., 8000).
+
+### Install Avahi (mDNS) on Raspberry Pi
+```
+sudo apt update
+sudo apt install -y avahi-daemon avahi-utils
+sudo systemctl enable --now avahi-daemon
+```
+
+### Create a service definition for _sprinkler._tcp
+```
+# Create service file
+sudo tee /etc/avahi/services/sprinkler.service >/dev/null <<'XML'
+<?xml version="1.0" standalone='no'?><!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+<service-group>
+  <name replace-wildcards="yes">%h</name>
+  <service>
+    <type>_sprinkler._tcp</type>
+    <port>8000</port>
+    <txt-record>path=/api/status</txt-record>
+  </service>
+</service-group>
+XML
+
+# Restart Avahi
+sudo systemctl restart avahi-daemon
+```
+
+If you prefer to reuse HTTP, you can instead advertise _http._tcp with a service name containing “sprinkler”, but _sprinkler._tcp avoids noise from unrelated devices.
+
+### Verify advertisement
+```
+# From a Mac on the same LAN:
+dns-sd -B _sprinkler._tcp
+# You should see a service instance listed; then resolve it:
+dns-sd -L <ServiceName> _sprinkler._tcp local
+```
+
+### Notes
+
+- Keep the port in the service file in sync with your API server (Phase 1 default: 8000).
+- The iOS app filters for services whose name or host contains “sprinkler”.
