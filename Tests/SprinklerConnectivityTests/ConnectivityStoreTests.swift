@@ -1,3 +1,4 @@
+#if canImport(XCTest)
 import XCTest
 @testable import SprinklerConnectivity
 
@@ -41,3 +42,4 @@ private actor MockHealthChecker: ConnectivityChecking {
         return result
     }
 }
+#endif

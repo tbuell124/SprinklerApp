@@ -1,3 +1,4 @@
+#if canImport(XCTest)
 import XCTest
 #if canImport(FoundationNetworking)
 import FoundationNetworking
@@ -113,3 +114,4 @@ final class StubURLProtocol: URLProtocol {
         // No-op
     }
 }
+#endif
