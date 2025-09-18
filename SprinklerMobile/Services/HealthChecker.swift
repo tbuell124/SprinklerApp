@@ -43,7 +43,7 @@ public struct HealthChecker: HealthChecking {
         var request = URLRequest(url: statusURL)
         request.httpMethod = "GET"
         request.timeoutInterval = Constants.timeout
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.addValue("application/json", forHTTPHeaderField: "Accept")
 
         do {
             let (data, response) = try await session.data(for: request)
