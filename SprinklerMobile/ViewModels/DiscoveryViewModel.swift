@@ -4,14 +4,14 @@ import Dispatch
 import Combine
 #endif
 
-/// Bridges Bonjour discovery events into SwiftUI-friendly published properties.
+/// Bridges the Bonjour discovery service to SwiftUI-friendly published properties.
 @MainActor
 final class DiscoveryViewModel: ObservableObject {
-    /// Discovered devices surfaced to the UI.
+    /// Devices currently discovered on the network.
     @Published var devices: [DiscoveredDevice] = []
-    /// Indicates whether discovery is currently active.
+    /// Whether discovery is currently active to help drive UI state.
     @Published var isBrowsing: Bool = false
-    /// Holds any user-facing error message from discovery.
+    /// Optional error message that can be surfaced to the user.
     @Published var errorMessage: String?
 
     private let service: BonjourDiscoveryProviding
@@ -29,13 +29,13 @@ final class DiscoveryViewModel: ObservableObject {
         #endif
     }
 
-    /// Starts Bonjour discovery and flips the state flag.
+    /// Starts discovery and flips the browsing flag.
     func start() {
         isBrowsing = true
         service.start()
     }
 
-    /// Requests a refresh from the service, typically re-browsing.
+    /// Forces a new discovery pass by calling refresh on the service.
     func refresh() {
         isBrowsing = true
         service.refresh()

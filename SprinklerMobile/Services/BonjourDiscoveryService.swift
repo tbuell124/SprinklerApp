@@ -2,6 +2,7 @@ import Foundation
 #if canImport(Combine)
 import Combine
 #else
+/// Lightweight stand-ins for Combine types so the Linux build does not fail.
 public struct AnyPublisher<Output, Failure: Error> {
     public init() {}
 }
@@ -17,19 +18,19 @@ final class CurrentValueSubject<Output, Failure: Error> {
 }
 #endif
 
-/// Protocol describing the discovery interface used by the app.
+/// Abstracts Bonjour discovery so the view model can react to changes through Combine.
 protocol BonjourDiscoveryProviding: AnyObject {
-    /// Publisher emitting currently discovered devices.
+    /// Publisher emitting current list of discovered sprinkler controllers.
     var devicesPublisher: AnyPublisher<[DiscoveredDevice], Never> { get }
     /// Starts Bonjour discovery.
     func start()
-    /// Stops Bonjour discovery.
+    /// Stops the ongoing discovery session.
     func stop()
-    /// Refreshes the discovery session.
+    /// Requests a fresh discovery run.
     func refresh()
 }
 
-/// Stubbed discovery service that keeps the project building even without Bonjour integration.
+/// Stubbed implementation that keeps the project compiling while discovery is being built out.
 final class BonjourDiscoveryService: BonjourDiscoveryProviding {
     private let subject = CurrentValueSubject<[DiscoveredDevice], Never>([])
     var devicesPublisher: AnyPublisher<[DiscoveredDevice], Never> { subject.eraseToAnyPublisher() }

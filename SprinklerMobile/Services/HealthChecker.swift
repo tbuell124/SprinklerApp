@@ -5,10 +5,11 @@ import FoundationNetworking
 
 /// Abstraction used to verify sprinkler controller connectivity.
 protocol ConnectivityChecking {
+    /// Executes a connectivity check against the provided base URL.
     func check(baseURL: URL) async -> ConnectivityState
 }
 
-/// Performs connectivity checks against the sprinkler controller's status endpoint.
+/// Performs a simple `/api/status` health check to validate connectivity to the controller.
 struct HealthChecker: ConnectivityChecking {
     private let session: URLSession
 
@@ -16,7 +17,6 @@ struct HealthChecker: ConnectivityChecking {
         self.session = session
     }
 
-    /// Invokes `/api/status` on the provided base URL and returns the resulting connectivity state.
     func check(baseURL: URL) async -> ConnectivityState {
         var statusURL = baseURL
         statusURL.append(path: "/api/status")
