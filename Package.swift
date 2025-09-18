@@ -16,16 +16,17 @@ let package = Package(
             exclude: [
                 "Data",
                 "Resources",
-                "Stores",
-                "ViewModels",
                 "Utils",
                 "Views",
-                "SprinklerMobileApp.swift"
+                "SprinklerMobileApp.swift",
+                "Stores/SprinklerStore.swift"
             ],
             sources: [
+                "Models/DiscoveredDevice.swift",
                 "Services/HealthChecker.swift",
                 "Services/BonjourDiscoveryService.swift",
-                "Store/ConnectivityStore.swift"
+                "Stores/ConnectivityStore.swift",
+                "ViewModels/DiscoveryViewModel.swift"
             ]
         ),
         .testTarget(
