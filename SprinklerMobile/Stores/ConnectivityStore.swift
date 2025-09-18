@@ -42,7 +42,13 @@ final class ConnectivityStore: ObservableObject {
 
     /// Calls the health checker against the normalized base URL and updates published state.
     func testConnection() async {
+        guard !isChecking else { return }
+
         let trimmed = baseURLString.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed != baseURLString {
+            baseURLString = trimmed
+        }
+
         guard let url = ConnectivityStore.normalizedBaseURL(from: trimmed) else {
             self.state = .offline(errorDescription: "Invalid URL")
             return
@@ -50,7 +56,7 @@ final class ConnectivityStore: ObservableObject {
         isChecking = true
         defer { isChecking = false }
         let result = await checker.check(baseURL: url)
-        await MainActor.run { self.state = result }
+        self.state = result
     }
 
     /// Normalizes text entered by the user by prepending `http://` when missing.

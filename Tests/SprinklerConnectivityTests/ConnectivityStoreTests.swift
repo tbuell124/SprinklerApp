@@ -29,6 +29,27 @@ final class ConnectivityStoreTests: XCTestCase {
         let url = ConnectivityStore.normalizedBaseURL(from: "sprinkler.local:1234")
         XCTAssertEqual(url?.absoluteString, "http://sprinkler.local:1234")
     }
+
+    func testConcurrentCallsDoNotTriggerMultipleChecks() async {
+        let suiteName = "sprinkler.connectivity.concurrent"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            XCTFail("Unable to create user defaults suite")
+            return
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let checker = SlowHealthChecker(result: .connected)
+        let store = await ConnectivityStore(checker: checker, defaults: defaults)
+
+        async let first: Void = store.testConnection()
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        await store.testConnection()
+        _ = await first
+
+        let invocations = await checker.invocationCount()
+        XCTAssertEqual(invocations, 1)
+    }
 }
 
 private actor MockHealthChecker: ConnectivityChecking {
@@ -41,5 +62,22 @@ private actor MockHealthChecker: ConnectivityChecking {
     func check(baseURL: URL) async -> ConnectivityState {
         return result
     }
+}
+
+private actor SlowHealthChecker: ConnectivityChecking {
+    private let result: ConnectivityState
+    private var calls = 0
+
+    init(result: ConnectivityState) {
+        self.result = result
+    }
+
+    func check(baseURL: URL) async -> ConnectivityState {
+        calls += 1
+        try? await Task.sleep(nanoseconds: 100_000_000)
+        return result
+    }
+
+    func invocationCount() -> Int { calls }
 }
 #endif
