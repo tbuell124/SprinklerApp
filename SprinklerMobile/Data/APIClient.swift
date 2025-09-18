@@ -81,7 +81,7 @@ actor APIClient {
         }
 
         let payload = PinUpdatePayload(name: name, isEnabled: isEnabled)
-        let endpoint = Endpoint<EmptyResponse>(path: "/api/pin/\(pin)",
+        let endpoint = Endpoint<EmptyResponse>(path: "/api/pins/\(pin)",
                                                method: .post,
                                                body: AnyEncodable(payload))
         _ = try await perform(endpoint)
