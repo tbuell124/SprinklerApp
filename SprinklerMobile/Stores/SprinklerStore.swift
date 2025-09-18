@@ -67,7 +67,22 @@ final class SprinklerStore: ObservableObject {
     private let defaults: UserDefaults
     private let keychain: KeychainStoring
     private let statusCache: StatusCache
-    private let bonjourDiscovery: BonjourServiceDiscovery
+    private lazy var bonjourDiscovery: BonjourServiceDiscovery = {
+        BonjourServiceDiscovery(
+            serviceType: "_sprinkler._tcp.",
+            domain: "local.",
+            updateHandler: { [weak self] services in
+                Task { @MainActor in
+                    self?.discoveredServices = services
+                }
+            },
+            stateHandler: { [weak self] isSearching in
+                Task { @MainActor in
+                    self?.isDiscoveringServices = isSearching
+                }
+            }
+        )
+    }()
 
     private let targetKey = "sprinkler.target_address"
     private let keychainTargetKey = "sprinkler.target_address_secure"
@@ -81,19 +96,6 @@ final class SprinklerStore: ObservableObject {
         self.keychain = keychain
         self.client = client
         self.statusCache = StatusCache()
-
-        self.bonjourDiscovery = BonjourServiceDiscovery(serviceType: "_sprinkler._tcp.",
-                                                        domain: "local.",
-                                                        updateHandler: { [weak self] services in
-                                                            Task { @MainActor in
-                                                                self?.discoveredServices = services
-                                                            }
-                                                        },
-                                                        stateHandler: { [weak self] isSearching in
-                                                            Task { @MainActor in
-                                                                self?.isDiscoveringServices = isSearching
-                                                            }
-                                                        })
 
         let keychainValue = keychain.string(forKey: keychainTargetKey)
         let defaultsValue = userDefaults.string(forKey: targetKey)
