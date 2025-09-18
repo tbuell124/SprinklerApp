@@ -21,6 +21,14 @@ Integrating with the iOS app
 
 Once complete, your Pi will boot up, run the sprinkler controller automatically, and be accessible by your iOS app with no further manual intervention.
 
+### Running Tests
+To run tests:
+1. Open Xcode.
+2. Select the scheme `Sprink!`.
+3. Press `Cmd + U` to build and run tests.
+
+Ensure that Sprinkler connectivity test files are only part of the `SprinklerConnectivityTests` target.
+
 2. Prerequisites
 
 Raspberry Pi OS (32- or 64-bit) installed and updated
