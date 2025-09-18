@@ -40,6 +40,19 @@ final class HealthCheckerTests: XCTestCase {
         }
     }
 
+    func testOfflineWhenControllerReportsUnhealthyStatus() async {
+        configureStub(statusCode: 200, data: Data("{\"ok\":false}".utf8))
+        let checker = HealthChecker(session: makeSession(protocolClass: StubURLProtocol.self))
+
+        let result = await checker.check(baseURL: URL(string: "http://example.com")!)
+
+        if case let .offline(description) = result {
+            XCTAssertEqual(description, "Controller reported unhealthy status")
+        } else {
+            XCTFail("Expected offline state")
+        }
+    }
+
     func testOfflineWhenServerReturnsErrorStatus() async {
         configureStub(statusCode: 500, data: Data("{}".utf8))
         let checker = HealthChecker(session: makeSession(protocolClass: StubURLProtocol.self))
@@ -51,6 +64,59 @@ final class HealthCheckerTests: XCTestCase {
         } else {
             XCTFail("Expected offline state")
         }
+    }
+
+    func testFallsBackToApiStatusWhenDirectStatusFails() async {
+        let expectation = expectation(description: "Both endpoints queried")
+        expectation.expectedFulfillmentCount = 2
+
+        var requestedPaths: [String] = []
+
+        StubURLProtocol.requestHandler = { request in
+            requestedPaths.append(request.url!.path)
+            expectation.fulfill()
+
+            if request.url!.path == "/status" {
+                let response = HTTPURLResponse(url: request.url!,
+                                               statusCode: 404,
+                                               httpVersion: nil,
+                                               headerFields: nil)!
+                return (response, Data("{}".utf8))
+            } else {
+                let response = HTTPURLResponse(url: request.url!,
+                                               statusCode: 200,
+                                               httpVersion: nil,
+                                               headerFields: ["Content-Type": "application/json"])!
+                return (response, Data("{\"ok\":true}".utf8))
+            }
+        }
+
+        let checker = HealthChecker(session: makeSession(protocolClass: StubURLProtocol.self))
+        let result = await checker.check(baseURL: URL(string: "http://example.com")!)
+
+        await fulfillment(of: [expectation], timeout: 1.0)
+        XCTAssertEqual(result, .connected)
+        XCTAssertEqual(requestedPaths, ["/status", "/api/status"])
+    }
+
+    func testDoesNotDuplicateApiSegmentWhenBaseURLAlreadyContainsIt() async {
+        let expectation = expectation(description: "Single request")
+
+        StubURLProtocol.requestHandler = { request in
+            expectation.fulfill()
+            XCTAssertEqual(request.url?.path, "/api/status")
+            let response = HTTPURLResponse(url: request.url!,
+                                           statusCode: 200,
+                                           httpVersion: nil,
+                                           headerFields: ["Content-Type": "application/json"])!
+            return (response, Data("{\"ok\":true}".utf8))
+        }
+
+        let checker = HealthChecker(session: makeSession(protocolClass: StubURLProtocol.self))
+        let result = await checker.check(baseURL: URL(string: "http://example.com/api")!)
+
+        await fulfillment(of: [expectation], timeout: 1.0)
+        XCTAssertEqual(result, .connected)
     }
 
     func testOfflineWhenNetworkErrorOccurs() async {
