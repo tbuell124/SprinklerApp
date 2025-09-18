@@ -372,11 +372,29 @@ final class HTTPClient {
     }
 
     private func joinedPath(basePath: String, endpointPath: String) -> String {
-        let trimmedBase = basePath.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        let trimmedEndpoint = endpointPath.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        let segments = [trimmedBase, trimmedEndpoint].filter { !$0.isEmpty }
-        guard !segments.isEmpty else { return "/" }
-        return "/" + segments.joined(separator: "/")
+        let baseSegments = basePath
+            .split(separator: "/")
+            .filter { !$0.isEmpty }
+        var endpointSegments = endpointPath
+            .split(separator: "/")
+            .filter { !$0.isEmpty }
+
+        let baseCount = baseSegments.count
+        if baseCount > 0, endpointSegments.count >= baseCount {
+            let prefixMatches = (0..<baseCount).allSatisfy { index in
+                let base = String(baseSegments[index])
+                let endpoint = String(endpointSegments[index])
+                return base.caseInsensitiveCompare(endpoint) == .orderedSame
+            }
+
+            if prefixMatches {
+                endpointSegments.removeFirst(baseCount)
+            }
+        }
+
+        let combinedSegments = baseSegments + endpointSegments
+        guard !combinedSegments.isEmpty else { return "/" }
+        return "/" + combinedSegments.joined(separator: "/")
     }
 
     private static func makeDefaultCache() -> URLCache {
