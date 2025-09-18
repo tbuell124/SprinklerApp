@@ -1,3 +1,4 @@
+#if canImport(XCTest)
 import XCTest
 @testable import SprinklerConnectivity
 
@@ -12,3 +13,4 @@ final class BonjourDiscoveryServiceTests: XCTestCase {
         XCTAssertEqual(device.baseURLString, "http://[fd00::1]:8000")
     }
 }
+#endif
