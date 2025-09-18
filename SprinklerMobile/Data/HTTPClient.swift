@@ -71,6 +71,20 @@ final class HTTPClient {
         return formatter
     }()
 
+    /// Shared ISO8601 formatters used when decoding date strings from controller responses.
+    ///
+    /// Creating `ISO8601DateFormatter` instances is surprisingly expensive, so we reuse
+    /// the same formatters across requests to keep date parsing fast and allocation-free.
+    private static let iso8601DateFormatters: [ISO8601DateFormatter] = {
+        let fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+        let standard = ISO8601DateFormatter()
+        standard.formatOptions = [.withInternetDateTime]
+
+        return [fractional, standard]
+    }()
+
     init(sessionConfiguration: URLSessionConfiguration = .default,
          cache: URLCache = HTTPClient.makeDefaultCache(),
          maxRetries: Int = 2,
@@ -98,15 +112,8 @@ final class HTTPClient {
         decoder.dateDecodingStrategy = .custom { decoder in
             let container = try decoder.singleValueContainer()
             let value = try container.decode(String.self)
-            let formatters: [ISO8601DateFormatter] = {
-                let fractional = ISO8601DateFormatter()
-                fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-                let standard = ISO8601DateFormatter()
-                standard.formatOptions = [.withInternetDateTime]
-                return [fractional, standard]
-            }()
 
-            for formatter in formatters {
+            for formatter in Self.iso8601DateFormatters {
                 if let date = formatter.date(from: value) {
                     return date
                 }
