@@ -308,7 +308,7 @@ private struct QuickActionButton: View {
 
                 Image(systemName: "chevron.right")
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(.tertiaryLabel)
+                    .foregroundStyle(.tertiary)
             }
             .padding(18)
             .background(Color.appBackground)
@@ -404,17 +404,6 @@ private extension ConnectivityState {
 }
 
 private extension Color {
-    /// Provides a fallback tertiary label color that works across platforms.
-    static var tertiaryLabel: Color {
-        #if os(iOS)
-        Color(UIColor.tertiaryLabel)
-        #elseif canImport(AppKit)
-        Color(NSColor.tertiaryLabelColor)
-        #else
-        Color.secondary
-        #endif
-    }
-
     /// Normalised background color that respects the active platform's default surfaces.
     static var appBackground: Color {
         #if os(iOS)
