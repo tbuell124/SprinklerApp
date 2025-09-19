@@ -3,11 +3,13 @@ import SwiftUI
 @main
 struct SprinklerMobileApp: App {
     @StateObject private var connectivityStore = ConnectivityStore()
+    @StateObject private var sprinklerStore = SprinklerStore()
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environmentObject(connectivityStore)
+                .environmentObject(sprinklerStore)
         }
     }
 }

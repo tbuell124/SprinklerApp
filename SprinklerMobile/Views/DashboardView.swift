@@ -1,23 +1,31 @@
 import SwiftUI
-#if os(iOS)
-import UIKit
-#elseif canImport(AppKit)
-import AppKit
-#endif
 
-/// Shared relative date formatter so all components display consistent phrasing.
-private let dashboardRelativeFormatter: RelativeDateTimeFormatter = {
+/// Shared relative formatter used for presenting schedule start and end times in a conversational manner.
+private let scheduleRelativeFormatter: RelativeDateTimeFormatter = {
     let formatter = RelativeDateTimeFormatter()
-    formatter.unitsStyle = .short
+    formatter.unitsStyle = .full
     return formatter
 }()
 
-/// Landing view that presents a rich overview of the sprinkler controller's health
-/// and quick access to the most common actions.
+/// Formatter dedicated to displaying just the time component for schedule summaries.
+private let scheduleTimeFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.dateStyle = .none
+    formatter.timeStyle = .short
+    return formatter
+}()
+
+/// Landing page that surfaces the most important controller information in four distinct panels:
+/// LED status, current schedule summary, pin controls, and rain automation state.
 struct DashboardView: View {
-    @EnvironmentObject private var store: ConnectivityStore
-    @State private var showCopiedToast = false
+    @EnvironmentObject private var connectivityStore: ConnectivityStore
+    @EnvironmentObject private var sprinklerStore: SprinklerStore
     @Environment(\.scenePhase) private var scenePhase
+    @State private var pinListEditMode: EditMode = .inactive
+
+    private var toastBinding: Binding<ToastState?> {
+        Binding(get: { sprinklerStore.toast }, set: { sprinklerStore.toast = $0 })
+    }
 
     var body: some View {
         NavigationStack {
@@ -25,360 +33,542 @@ struct DashboardView: View {
                 LinearGradient.appCanvas
                     .ignoresSafeArea()
 
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 28) {
-                        DashboardHeroCard(state: store.state,
-                                          lastChecked: store.lastCheckedDate,
-                                          baseURL: store.baseURLString,
-                                          isLoading: store.isChecking)
-
-                        DashboardQuickActionsSection(isChecking: store.isChecking,
-                                                      onRefresh: { Task { await store.refresh() } },
-                                                      onCopy: copyAddressToPasteboard)
-
-                        DashboardStatusSection(state: store.state,
-                                               lastChecked: store.lastCheckedDate,
-                                               baseURL: store.baseURLString)
-
-                        HelpfulTipsCard()
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 32)
+                List {
+                    ledStatusSection
+                    ScheduleSummaryView()
+                    PinListSection(isRefreshing: sprinklerStore.isRefreshing)
+                    rainStatusSection
                 }
+                .listStyle(.insetGrouped)
+                .scrollContentBackground(.hidden)
+                .environment(\.editMode, $pinListEditMode)
             }
             .navigationTitle("Sprinkler")
             .toolbar { refreshToolbarItem }
-            .refreshable { await store.refresh() }
-            .task { await store.refresh() }
-            .alert("Controller URL copied", isPresented: $showCopiedToast) {
-                Button("OK", role: .cancel) { showCopiedToast = false }
-            } message: {
-                Text("Share this address with anyone who needs access to the sprinkler controller.")
+            .refreshable { await refreshAll() }
+            .task { await refreshAll() }
+            .onChange(of: scenePhase) { _, newPhase in
+                guard newPhase == .active else { return }
+                Task { await refreshAll() }
             }
-            .onChange(of: scenePhase) { _, phase in
-                // Automatically refresh whenever the app becomes active so the dashboard
-                // always reflects the most recent controller state.
-                if phase == .active {
-                    Task { await store.refresh() }
-                }
+        }
+        .toast(state: toastBinding)
+    }
+
+    /// Section containing a compact grid of GPIO indicators along with controller and rain status lights.
+    private var ledStatusSection: some View {
+        Section {
+            CardContainer {
+                GPIOIndicatorGrid(pins: sprinklerStore.pins,
+                                   controllerState: connectivityStore.state,
+                                   rain: sprinklerStore.rain,
+                                   isRainAutomationEnabled: sprinklerStore.rainAutomationEnabled)
             }
+            .listRowInsets(EdgeInsets(top: 12, leading: 0, bottom: 12, trailing: 0))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+        } header: {
+            Text("LED Status")
+                .font(.appHeadline)
+                .foregroundStyle(.secondary)
         }
     }
 
-    /// Toolbar button that mirrors pull-to-refresh for discoverability.
+    /// Section visualising the current rain automation configuration and live delay state.
+    private var rainStatusSection: some View {
+        Section {
+            RainCardView(rain: sprinklerStore.rain,
+                         isLoading: sprinklerStore.isRefreshing,
+                         isAutomationEnabled: sprinklerStore.rainAutomationEnabled,
+                         isUpdatingAutomation: sprinklerStore.isUpdatingRainAutomation,
+                         onToggleAutomation: sprinklerStore.setRainAutomationEnabled)
+                .listRowInsets(EdgeInsets(top: 12, leading: 0, bottom: 12, trailing: 0))
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+        } header: {
+            Text("Rain Status")
+                .font(.appHeadline)
+                .foregroundStyle(.secondary)
+        }
+        .textCase(nil)
+        .headerProminence(.increased)
+    }
+
+    /// Toolbar button mirroring pull-to-refresh for additional discoverability.
     private var refreshToolbarItem: some ToolbarContent {
         ToolbarItem(placement: .navigationBarTrailing) {
             Button {
-                Task { await store.refresh() }
+                Task { await refreshAll() }
             } label: {
-                if store.isChecking {
+                if sprinklerStore.isRefreshing {
                     ProgressView()
+                        .progressViewStyle(.circular)
+                        .accessibilityLabel("Refreshing controller state")
                 } else {
                     Image(systemName: "arrow.clockwise")
                 }
             }
-            .accessibilityLabel("Refresh controller status")
+            .accessibilityLabel("Refresh dashboard data")
         }
     }
 
-    /// Copies the configured controller address to the user's pasteboard with platform awareness.
-    private func copyAddressToPasteboard() {
-        #if os(iOS)
-        UIPasteboard.general.string = store.baseURLString
-        showCopiedToast = true
-        #elseif canImport(AppKit)
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.setString(store.baseURLString, forType: .string)
-        showCopiedToast = true
-        #else
-        // Other platforms may not offer a convenient API; fall back to logging so developers
-        // still have visibility during testing.
-        print("Controller URL copied: \(store.baseURLString)")
-        #endif
+    /// Triggers both the connectivity check and the controller status refresh in parallel.
+    private func refreshAll() async {
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { await connectivityStore.refresh() }
+            group.addTask { await sprinklerStore.refresh() }
+        }
     }
 }
 
-// MARK: - Sections
+// MARK: - GPIO Indicator Grid
 
-private struct DashboardQuickActionsSection: View {
-    let isChecking: Bool
-    let onRefresh: () -> Void
-    let onCopy: () -> Void
+/// Compact grid of controller LEDs that mirrors the hardware layout and includes controller level health lights.
+private struct GPIOIndicatorGrid: View {
+    struct Indicator: Identifiable {
+        let id: String
+        let title: String
+        let caption: String?
+        let symbol: String?
+        let text: String?
+        let fillColor: Color
+        let isDimmed: Bool
+        let accessibilityLabel: String
+    }
+
+    let pins: [PinDTO]
+    let controllerState: ConnectivityState
+    let rain: RainDTO?
+    let isRainAutomationEnabled: Bool
+
+    private var indicators: [Indicator] {
+        var results: [Indicator] = pins.map { pin in
+            let isActive = pin.isActive ?? false
+            let isEnabled = pin.isEnabled ?? true
+            let fill = isEnabled ? (isActive ? Color.appAccentPrimary : Color.appSeparator.opacity(0.6)) : Color.appSeparator.opacity(0.35)
+            let captionText: String?
+            if let name = pin.name, !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, name != "GPIO \(pin.pin)" {
+                captionText = name
+            } else {
+                captionText = nil
+            }
+            return Indicator(id: "pin-\(pin.pin)",
+                             title: "GPIO \(pin.pin)",
+                             caption: captionText,
+                             symbol: nil,
+                             text: "\(pin.pin)",
+                             fillColor: fill,
+                             isDimmed: !isEnabled,
+                             accessibilityLabel: "\(pin.displayName) is \(isActive ? "on" : "off")")
+        }
+
+        let controllerIsOnline: Bool
+        let controllerMessage: String
+        switch controllerState {
+        case .connected:
+            controllerIsOnline = true
+            controllerMessage = "Reachable"
+        case let .offline(message):
+            controllerIsOnline = false
+            controllerMessage = message ?? "Offline"
+        }
+
+        results.append(
+            Indicator(id: "controller",
+                      title: "Controller",
+                      caption: controllerMessage,
+                      symbol: "antenna.radiowaves.left.and.right",
+                      text: nil,
+                      fillColor: controllerIsOnline ? Color.appSuccess : Color.appDanger,
+                      isDimmed: false,
+                      accessibilityLabel: "Raspberry Pi connectivity is \(controllerIsOnline ? "online" : "offline")")
+        )
+
+        let rainActive = rain?.isActive == true
+        let rainCaption: String
+        let rainColor: Color
+        if !isRainAutomationEnabled {
+            rainCaption = "Automation disabled"
+            rainColor = Color.appDanger
+        } else if rainActive {
+            rainCaption = "Delay active"
+            rainColor = Color.appAccentSecondary
+        } else {
+            rainCaption = "No delay"
+            rainColor = Color.appSeparator.opacity(0.6)
+        }
+
+        results.append(
+            Indicator(id: "rain",
+                      title: "Rain Delay",
+                      caption: rainCaption,
+                      symbol: "cloud.rain",
+                      text: nil,
+                      fillColor: rainColor,
+                      isDimmed: !isRainAutomationEnabled && !rainActive,
+                      accessibilityLabel: rainAccessibilityLabel(isActive: rainActive))
+        )
+
+        return results
+    }
+
+    private var columns: [GridItem] {
+        let count = max(2, Int(ceil(sqrt(Double(indicators.count)))))
+        return Array(repeating: GridItem(.flexible(minimum: 60, maximum: 120), spacing: 16), count: count)
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            DashboardSectionHeader(title: "Quick Actions")
-
-            VStack(spacing: 12) {
-                QuickActionCardButton(title: isChecking ? "Checking…" : "Run Health Check",
-                                       subtitle: "Verifies that the controller is reachable right now.",
-                                       icon: "wave.3.left",
-                                       action: onRefresh)
-                .disabled(isChecking)
-
-                QuickActionCardButton(title: "Copy Controller URL",
-                                       subtitle: "Share the configured address with another device.",
-                                       icon: "doc.on.doc",
-                                       action: onCopy)
+        LazyVGrid(columns: columns, spacing: 18) {
+            ForEach(indicators) { indicator in
+                IndicatorLight(indicator: indicator)
             }
         }
         .accessibilityElement(children: .contain)
     }
-}
 
-private struct DashboardStatusSection: View {
-    let state: ConnectivityState
-    let lastChecked: Date?
-    let baseURL: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            DashboardSectionHeader(title: "Status Highlights")
-
-            VStack(spacing: 12) {
-                StatusHighlightCard(title: "Reachability",
-                                    icon: state.statusIcon,
-                                    tint: state.statusColor,
-                                    value: state.statusTitle,
-                                    detail: state.statusMessage)
-
-                if let lastChecked {
-                    StatusHighlightCard(title: "Last Checked",
-                                        icon: "clock.badge.checkmark",
-                                        tint: Color.appAccentPrimary,
-                                        value: lastChecked.formatted(date: .omitted, time: .shortened),
-                                        detail: dashboardRelativeFormatter.localizedString(for: lastChecked, relativeTo: .now))
-                }
-
-                StatusHighlightCard(title: "Controller Address",
-                                    icon: "network",
-                                    tint: Color.appAccentSecondary,
-                                    value: baseURL,
-                                    detail: "Tap copy above to share this address with others.")
-            }
+    private func rainAccessibilityLabel(isActive: Bool) -> String {
+        if !isRainAutomationEnabled {
+            return "Rain delay automation is disabled"
         }
-        .accessibilityElement(children: .contain)
+        return isActive ? "Rain delay is active" : "Rain delay is inactive"
     }
 }
 
-private struct DashboardSectionHeader: View {
-    let title: String
+/// Visual representation for a single LED indicator in the dashboard grid.
+private struct IndicatorLight: View {
+    let indicator: GPIOIndicatorGrid.Indicator
 
     var body: some View {
-        Text(title)
-            .font(.appHeadline)
-            .foregroundStyle(.primary)
-            .accessibilityAddTraits(.isHeader)
-    }
-}
-
-// MARK: - Cards
-
-/// A featured card that visualises the current connection state.
-private struct DashboardHeroCard: CardView {
-    let state: ConnectivityState
-    let lastChecked: Date?
-    let baseURL: String
-    let isLoading: Bool
-
-    var cardConfiguration: CardConfiguration { .hero(accent: state.statusColor) }
-
-    var cardBody: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            HStack(alignment: .center, spacing: 16) {
-                ZStack {
-                    Circle()
-                        .fill(state.statusColor.opacity(0.22))
-                        .frame(width: 62, height: 62)
-                    Image(systemName: state.statusIcon)
-                        .font(.system(size: 28, weight: .semibold))
-                        .foregroundStyle(state.statusColor)
-                }
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(state.statusTitle)
-                        .font(.appLargeTitle)
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-
-                    if let message = state.statusMessage {
-                        Text(message)
-                            .font(.appBody)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
+        VStack(spacing: 8) {
+            ZStack {
+                Circle()
+                    .fill(indicator.fillColor)
+                    .frame(width: 52, height: 52)
+                    .overlay {
+                        Circle()
+                            .stroke(Color.appCardStroke.opacity(0.6), lineWidth: 1)
                     }
+                    .opacity(indicator.isDimmed ? 0.55 : 1)
+
+                if let symbol = indicator.symbol {
+                    Image(systemName: symbol)
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(Color.white)
+                        .accessibilityHidden(true)
+                } else if let text = indicator.text {
+                    Text(text)
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .foregroundStyle(Color.white)
+                        .accessibilityHidden(true)
+                }
+            }
+
+            Text(indicator.title)
+                .font(.appSubheadline)
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+
+            if let caption = indicator.caption {
+                Text(caption)
+                    .font(.appCaption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(8)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.appCardBackground.opacity(0.45))
+        )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(indicator.accessibilityLabel)
+    }
+}
+
+// MARK: - Schedule Summary
+
+/// Card summarising the current and upcoming watering schedules with a convenient link to the full editor.
+private struct ScheduleSummaryView: View {
+    @EnvironmentObject private var store: SprinklerStore
+
+    var body: some View {
+        Section {
+            CardContainer {
+                VStack(alignment: .leading, spacing: 16) {
+                    ScheduleSummaryRow(mode: .current, run: store.currentScheduleRun)
+                    Divider()
+                        .background(Color.appSeparator.opacity(0.4))
+                    ScheduleSummaryRow(mode: .upcoming, run: store.nextScheduleRun)
+                    NavigationLink {
+                        SchedulesView()
+                    } label: {
+                        Label("Open schedules", systemImage: "calendar")
+                            .font(.appButton)
+                    }
+                    .accessibilityHint("Opens the detailed schedule management screen")
+                }
+            }
+            .listRowInsets(EdgeInsets(top: 12, leading: 0, bottom: 12, trailing: 0))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+        } header: {
+            Text("Schedule Summary")
+                .font(.appHeadline)
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
+/// Individual row describing either the current or next scheduled run.
+private struct ScheduleSummaryRow: View {
+    enum Mode {
+        case current
+        case upcoming
+
+        var title: String {
+            switch self {
+            case .current: return "Currently Running"
+            case .upcoming: return "Next Schedule"
+            }
+        }
+    }
+
+    let mode: Mode
+    let run: SprinklerStore.ScheduleRun?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(mode.title)
+                .font(.appSubheadline)
+                .foregroundStyle(.secondary)
+
+            if let run {
+                Text(run.schedule.name ?? "Schedule")
+                    .font(.appButton)
+                    .foregroundStyle(.primary)
+
+                Text(detailText(for: run))
+                    .font(.appCaption)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("None")
+                    .font(.appButton)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func detailText(for run: SprinklerStore.ScheduleRun) -> String {
+        switch mode {
+        case .current:
+            let endText = scheduleTimeFormatter.string(from: run.endDate)
+            let relative = scheduleRelativeFormatter.localizedString(for: run.endDate, relativeTo: .now)
+            return "Ends at \(endText) (\(relative))"
+        case .upcoming:
+            let startText = scheduleTimeFormatter.string(from: run.startDate)
+            let relative = scheduleRelativeFormatter.localizedString(for: run.startDate, relativeTo: .now)
+            return "Starts \(relative) at \(startText)"
+        }
+    }
+}
+
+// MARK: - Pin List Section
+
+/// Card containing the list of controllable pins with inline run timers and drag-to-reorder support.
+private struct PinListSection: View {
+    @EnvironmentObject private var store: SprinklerStore
+    @Environment(\.editMode) private var editMode
+    @State private var isExpanded = true
+    @State private var durationInputs: [Int: String] = [:]
+
+    let isRefreshing: Bool
+
+    var body: some View {
+        Section {
+            CardContainer {
+                VStack(alignment: .leading, spacing: 14) {
+                    header
+
+                    if isExpanded {
+                        Divider()
+                            .background(Color.appSeparator.opacity(0.35))
+
+                        if isRefreshing && store.activePins.isEmpty {
+                            ForEach(0..<4, id: \.self) { _ in
+                                PinRowSkeleton()
+                            }
+                        } else if store.activePins.isEmpty {
+                            Text("Enable pins in Settings to control these zones.")
+                                .font(.appCaption)
+                                .foregroundStyle(.secondary)
+                                .padding(.vertical, 4)
+                        } else {
+                            ForEach(store.activePins) { pin in
+                                PinControlRow(pin: pin,
+                                              durationBinding: binding(for: pin),
+                                              onToggle: togglePin(_:desiredState:),
+                                              onRun: runPin(_:minutes:))
+                                    .moveDisabled(editMode?.wrappedValue != .active)
+                            }
+                            .onMove(perform: movePins)
+                        }
+                    }
+                }
+            }
+            .listRowInsets(EdgeInsets(top: 12, leading: 0, bottom: 12, trailing: 0))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+        } header: {
+            Text("Pin Controls")
+                .font(.appHeadline)
+                .foregroundStyle(.secondary)
+        }
+        .onChange(of: store.activePins) { _, newPins in
+            let valid = Set(newPins.map(\.pin))
+            durationInputs = durationInputs.filter { valid.contains($0.key) }
+        }
+    }
+
+    /// Header row containing the disclosure toggle and reorder control.
+    private var header: some View {
+        HStack(spacing: 12) {
+            Button {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+                    isExpanded.toggle()
+                    if !isExpanded {
+                        editMode?.wrappedValue = .inactive
+                    }
+                }
+            } label: {
+                Label("Active Zones", systemImage: isExpanded ? "chevron.down.circle.fill" : "chevron.right.circle.fill")
+                    .labelStyle(.titleAndIcon)
+                    .font(.appButton)
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Double tap to \(isExpanded ? "collapse" : "expand") the pin controls.")
+
+            Spacer()
+
+            if isExpanded && !store.activePins.isEmpty {
+                Button {
+                    if editMode?.wrappedValue == .active {
+                        editMode?.wrappedValue = .inactive
+                    } else {
+                        editMode?.wrappedValue = .active
+                    }
+                } label: {
+                    Label(editMode?.wrappedValue == .active ? "Done" : "Reorder",
+                          systemImage: editMode?.wrappedValue == .active ? "checkmark" : "arrow.up.arrow.down")
+                        .labelStyle(.titleAndIcon)
+                        .font(.appCaption.weight(.semibold))
+                }
+                .buttonStyle(.borderless)
+                .accessibilityHint("Double tap to \(editMode?.wrappedValue == .active ? "stop" : "start") reordering pins.")
+            }
+        }
+    }
+
+    /// Returns a binding that keeps the timer text field numeric-only.
+    private func binding(for pin: PinDTO) -> Binding<String> {
+        Binding(
+            get: { durationInputs[pin.pin] ?? "" },
+            set: { newValue in
+                let filtered = newValue.filter { $0.isNumber }
+                durationInputs[pin.pin] = filtered
+            }
+        )
+    }
+
+    private func togglePin(_ pin: PinDTO, desiredState: Bool) {
+        store.togglePin(pin, to: desiredState)
+    }
+
+    private func movePins(from offsets: IndexSet, to destination: Int) {
+        guard isExpanded else { return }
+        store.reorderPins(from: offsets, to: destination)
+    }
+
+    private func runPin(_ pin: PinDTO, minutes: Int) {
+        store.runPin(pin, forMinutes: minutes)
+        durationInputs[pin.pin] = ""
+    }
+}
+
+/// Row showing a single pin with toggle and duration input.
+private struct PinControlRow: View {
+    let pin: PinDTO
+    @Binding var durationBinding: String
+    let onToggle: (PinDTO, Bool) -> Void
+    let onRun: (PinDTO, Int) -> Void
+
+    private var isEnabled: Bool { pin.isEnabled ?? true }
+    private var isActive: Bool { pin.isActive ?? false }
+    private var minutesValue: Int? { Int(durationBinding) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(pin.displayName)
+                        .font(.appButton)
+                        .foregroundStyle(.primary)
+                    Text("GPIO \(pin.pin)")
+                        .font(.appCaption)
+                        .foregroundStyle(.secondary)
                 }
 
                 Spacer()
 
-                if isLoading {
-                    ProgressView()
-                        .progressViewStyle(.circular)
-                        .controlSize(.large)
-                        .accessibilityLabel("Loading latest status")
-                }
-            }
-
-            Divider()
-                .background(Color.appSeparator.opacity(0.5))
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Controller URL")
-                    .font(.appSubheadline)
-                    .foregroundStyle(.secondary)
-                Text(baseURL)
-                    .font(.appMonospacedBody)
-                    .foregroundStyle(.primary)
-                    .accessibilityLabel("Configured controller URL: \(baseURL)")
-
-                if let lastChecked {
-                    Text("Last updated \(dashboardRelativeFormatter.localizedString(for: lastChecked, relativeTo: .now))")
-                        .font(.appCaption)
-                        .foregroundStyle(.secondary)
-                } else {
-                    Text("Run a health check to capture the latest status.")
-                        .font(.appCaption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-        }
-        .accessibilityElement(children: .combine)
-    }
-}
-
-/// Compact card used to display individual metrics or highlights.
-private struct StatusHighlightCard: CardView {
-    let title: String
-    let icon: String
-    let tint: Color
-    let value: String
-    let detail: String?
-
-    var cardConfiguration: CardConfiguration { .subtle }
-
-    var cardBody: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
-                Image(systemName: icon)
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(tint)
-                    .frame(width: 44, height: 44)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(tint.opacity(0.12))
-                    )
-                    .accessibilityHidden(true)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .font(.appSubheadline)
-                        .foregroundStyle(.primary)
-                    if let detail {
-                        Text(detail)
-                            .font(.appCaption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-            }
-
-            Divider()
-                .background(Color.appSeparator.opacity(0.5))
-
-            Text(value)
-                .font(.appMonospacedBody)
-                .foregroundStyle(.primary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .accessibilityElement(children: .combine)
-    }
-}
-
-/// The reusable card-style button that drives the quick actions section.
-private struct QuickActionCardButton: View {
-    let title: String
-    let subtitle: String
-    let icon: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            CardContainer(configuration: .subtle) {
-                HStack(alignment: .center, spacing: 16) {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(LinearGradient(colors: [Color.appAccentPrimary, Color.appAccentPrimary.opacity(0.7)],
-                                             startPoint: .topLeading,
-                                             endPoint: .bottomTrailing))
-                        .overlay {
-                            Image(systemName: icon)
-                                .font(.system(size: 22, weight: .semibold))
-                                .foregroundStyle(Color.white)
+                Toggle(isOn: Binding(
+                    get: { pin.isActive ?? false },
+                    set: { newValue in
+                        if isEnabled {
+                            onToggle(pin, newValue)
                         }
-                        .frame(width: 52, height: 52)
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(title)
-                            .font(.appButton)
-                            .foregroundStyle(.primary)
-                        Text(subtitle)
-                            .font(.appBody)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
                     }
+                )) {
+                    EmptyView()
+                }
+                .labelsHidden()
+                .disabled(!isEnabled)
+                .accessibilityLabel("Toggle \(pin.displayName)")
+                .accessibilityHint("Double tap to \(pin.isActive ?? false ? "turn off" : "activate") this zone.")
+            }
 
-                    Spacer()
+            if !isEnabled {
+                Text("Enable in Settings to control this zone.")
+                    .font(.appCaption)
+                    .foregroundStyle(.secondary)
+            }
 
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                        .accessibilityHidden(true)
+            HStack(spacing: 12) {
+                TextField("Minutes", text: $durationBinding)
+                    .keyboardType(.numberPad)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(minWidth: 80)
+                    .disabled(!isEnabled || isActive)
+                    .accessibilityLabel("Run duration for \(pin.displayName)")
+                    .accessibilityHint("Enter the number of minutes to run this zone.")
+
+                Button("Start") {
+                    if let minutes = minutesValue, minutes > 0 {
+                        onRun(pin, minutes)
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!isEnabled || isActive || (minutesValue ?? 0) <= 0)
+                .accessibilityHint("Double tap to start the zone for the specified duration.")
+
+                if isActive {
+                    Text("Running…")
+                        .font(.appCaption)
+                        .foregroundStyle(.appInfo)
                 }
             }
         }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(Text(title))
-        .accessibilityHint(Text(subtitle))
+        .padding(.vertical, 4)
+        .opacity(isEnabled ? 1 : 0.45)
     }
 }
-
-/// A lightweight card that surfaces contextual tips for maintaining connectivity.
-private struct HelpfulTipsCard: CardView {
-    var cardBody: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Label("Keep things running smoothly", systemImage: "lightbulb")
-                .font(.appButton)
-                .foregroundStyle(Color.appAccentSecondary)
-                .labelStyle(.titleAndIcon)
-
-            VStack(alignment: .leading, spacing: 10) {
-                TipRow(text: "Ensure the Raspberry Pi remains on the same Wi-Fi network as your phone.")
-                TipRow(text: "Reserve the Pi's IP address on your router to avoid unexpected changes.")
-                TipRow(text: "Use the Settings tab to update the base URL whenever your network changes.")
-            }
-        }
-        .accessibilityElement(children: .combine)
-    }
-}
-
-/// Single row used inside the tips card to avoid repeating layout code.
-private struct TipRow: View {
-    let text: String
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(Color.appSuccess)
-                .accessibilityHidden(true)
-            Text(text)
-                .font(.appBody)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .accessibilityElement(children: .combine)
-    }
-}
-
-// MARK: - Helpers live in shared extensions.
