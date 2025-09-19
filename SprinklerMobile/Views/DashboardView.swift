@@ -564,7 +564,7 @@ private struct PinControlRow: View {
                 if isActive {
                     Text("Running…")
                         .font(.appCaption)
-                        .foregroundStyle(.appInfo)
+                        .foregroundStyle(Color.appInfo)
                 }
             }
         }
