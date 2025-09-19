@@ -3,7 +3,11 @@ import XCTest
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif
+#if canImport(Sprink_)
+@testable import Sprink_
+#else
 @testable import SprinklerConnectivity
+#endif
 
 final class HealthCheckerTests: XCTestCase {
     func testConnectedWhenServerReturnsValidJSON() async throws {
