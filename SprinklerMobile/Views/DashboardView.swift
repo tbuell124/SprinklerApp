@@ -179,10 +179,12 @@ private struct DashboardHeroCard: View {
                     Text(state.statusTitle)
                         .font(.title2.weight(.bold))
                         .foregroundStyle(.primary)
-                    Text(state.statusMessage)
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    if let message = state.statusMessage {
+                        Text(message)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
 
                 Spacer()
@@ -236,7 +238,7 @@ private struct StatusHighlightCard: View {
     let icon: String
     let tint: Color
     let value: String
-    let detail: String
+    let detail: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -252,9 +254,11 @@ private struct StatusHighlightCard: View {
                     Text(title)
                         .font(.headline)
                         .foregroundStyle(.primary)
-                    Text(detail)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                    if let detail {
+                        Text(detail)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
 
