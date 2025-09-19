@@ -50,6 +50,7 @@ struct SettingsView: View {
                     .padding(.horizontal, 20)
                     .padding(.vertical, 32)
                 }
+                .scrollDismissesKeyboard(.interactively)
             }
             .navigationTitle("Settings")
             .toolbar { keyboardToolbar }
