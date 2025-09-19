@@ -89,15 +89,21 @@ struct ScheduleRowSkeleton: View {
     }
 }
 
-struct RainCardSkeleton: View {
+struct RainStatusSkeleton: View {
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 18) {
             SkeletonLine(height: 16)
+                .frame(maxWidth: 160)
+
+            SkeletonLine(height: 44, cornerRadius: 12)
+
+            SkeletonLine(height: 44, cornerRadius: 12)
+
             SkeletonLine(height: 14)
-                .frame(maxWidth: 100)
+                .frame(maxWidth: 120)
+
             SkeletonLine(height: 14)
                 .frame(maxWidth: 140)
-            SkeletonLine(height: 44, cornerRadius: 12)
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)

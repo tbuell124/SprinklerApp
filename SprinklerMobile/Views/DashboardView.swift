@@ -33,65 +33,58 @@ struct DashboardView: View {
                 LinearGradient.appCanvas
                     .ignoresSafeArea()
 
-                List {
-                    ledStatusSection
-                    ScheduleSummaryView()
-                    PinListSection(isRefreshing: sprinklerStore.isRefreshing)
-                    rainStatusSection
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 24) {
+                        ledStatusCard
+                        DashboardCard(title: "Schedule Summary") {
+                            ScheduleSummaryView()
+                        }
+                        DashboardCard(title: "Pin Controls") {
+                            PinListSection(isRefreshing: sprinklerStore.isRefreshing)
+                        }
+                        rainStatusCard
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 24)
                 }
-                .listStyle(.insetGrouped)
-                .scrollContentBackground(.hidden)
-                .environment(\.editMode, $pinListEditMode)
+                .refreshable { await refreshAll() }
             }
             .navigationTitle("Sprinkler")
             .toolbar { refreshToolbarItem }
-            .refreshable { await refreshAll() }
             .task { await refreshAll() }
             .onChange(of: scenePhase) { _, newPhase in
                 guard newPhase == .active else { return }
                 Task { await refreshAll() }
             }
         }
+        .environment(\.editMode, $pinListEditMode)
         .toast(state: toastBinding)
     }
 
     /// Section containing a compact grid of GPIO indicators along with controller and rain status lights.
-    private var ledStatusSection: some View {
-        Section {
-            CardContainer {
-                GPIOIndicatorGrid(pins: sprinklerStore.pins,
-                                   controllerState: connectivityStore.state,
-                                   rain: sprinklerStore.rain,
-                                   isRainAutomationEnabled: sprinklerStore.rainAutomationEnabled)
-            }
-            .listRowInsets(EdgeInsets(top: 12, leading: 0, bottom: 12, trailing: 0))
-            .listRowBackground(Color.clear)
-            .listRowSeparator(.hidden)
-        } header: {
-            Text("LED Status")
-                .font(.appHeadline)
-                .foregroundStyle(.secondary)
+    private var ledStatusCard: some View {
+        DashboardCard(title: "LED Status") {
+            GPIOIndicatorGrid(pins: sprinklerStore.pins,
+                              controllerState: connectivityStore.state,
+                              rain: sprinklerStore.rain,
+                              isRainAutomationEnabled: sprinklerStore.rainAutomationEnabled)
         }
     }
 
     /// Section visualising the current rain automation configuration and live delay state.
-    private var rainStatusSection: some View {
-        Section {
-            RainCardView(rain: sprinklerStore.rain,
-                         isLoading: sprinklerStore.isRefreshing,
-                         isAutomationEnabled: sprinklerStore.rainAutomationEnabled,
-                         isUpdatingAutomation: sprinklerStore.isUpdatingRainAutomation,
-                         onToggleAutomation: sprinklerStore.setRainAutomationEnabled)
-                .listRowInsets(EdgeInsets(top: 12, leading: 0, bottom: 12, trailing: 0))
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-        } header: {
-            Text("Rain Status")
-                .font(.appHeadline)
-                .foregroundStyle(.secondary)
+    private var rainStatusCard: some View {
+        DashboardCard(title: "Rain Status") {
+            RainStatusView(rain: sprinklerStore.rain,
+                           connectivity: connectivityStore.state,
+                           isLoading: sprinklerStore.isRefreshing,
+                           isAutomationEnabled: sprinklerStore.rainAutomationEnabled,
+                           isUpdatingAutomation: sprinklerStore.isUpdatingRainAutomation,
+                           onToggleRain: { isActive in
+                               let duration = isActive ? sprinklerStore.rain?.durationHours : nil
+                               sprinklerStore.setRain(active: isActive, durationHours: duration)
+                           },
+                           onToggleAutomation: sprinklerStore.setRainAutomationEnabled)
         }
-        .textCase(nil)
-        .headerProminence(.increased)
     }
 
     /// Toolbar button mirroring pull-to-refresh for additional discoverability.
@@ -118,6 +111,31 @@ struct DashboardView: View {
             group.addTask { await connectivityStore.refresh() }
             group.addTask { await sprinklerStore.refresh() }
         }
+    }
+}
+
+/// Reusable wrapper providing a title and shared card styling for dashboard sections.
+private struct DashboardCard<Content: View>: View {
+    let title: String
+    let content: Content
+
+    init(title: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .font(.appHeadline)
+                .foregroundStyle(.secondary)
+
+            CardContainer {
+                content
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .contain)
     }
 }
 
@@ -294,30 +312,20 @@ private struct ScheduleSummaryView: View {
     @EnvironmentObject private var store: SprinklerStore
 
     var body: some View {
-        Section {
-            CardContainer {
-                VStack(alignment: .leading, spacing: 16) {
-                    ScheduleSummaryRow(mode: .current, run: store.currentScheduleRun)
-                    Divider()
-                        .background(Color.appSeparator.opacity(0.4))
-                    ScheduleSummaryRow(mode: .upcoming, run: store.nextScheduleRun)
-                    NavigationLink {
-                        SchedulesView()
-                    } label: {
-                        Label("Open schedules", systemImage: "calendar")
-                            .font(.appButton)
-                    }
-                    .accessibilityHint("Opens the detailed schedule management screen")
-                }
+        VStack(alignment: .leading, spacing: 16) {
+            ScheduleSummaryRow(mode: .current, run: store.currentScheduleRun)
+            Divider()
+                .background(Color.appSeparator.opacity(0.4))
+            ScheduleSummaryRow(mode: .upcoming, run: store.nextScheduleRun)
+            NavigationLink {
+                SchedulesView()
+            } label: {
+                Label("Open schedules", systemImage: "calendar")
+                    .font(.appButton)
             }
-            .listRowInsets(EdgeInsets(top: 12, leading: 0, bottom: 12, trailing: 0))
-            .listRowBackground(Color.clear)
-            .listRowSeparator(.hidden)
-        } header: {
-            Text("Schedule Summary")
-                .font(.appHeadline)
-                .foregroundStyle(.secondary)
+            .accessibilityHint("Opens the detailed schedule management screen")
         }
+        .accessibilityElement(children: .contain)
     }
 }
 
@@ -386,49 +394,54 @@ private struct PinListSection: View {
     let isRefreshing: Bool
 
     var body: some View {
-        Section {
-            CardContainer {
-                VStack(alignment: .leading, spacing: 14) {
-                    header
+        VStack(alignment: .leading, spacing: 14) {
+            header
 
-                    if isExpanded {
-                        Divider()
-                            .background(Color.appSeparator.opacity(0.35))
+            if isExpanded {
+                Divider()
+                    .background(Color.appSeparator.opacity(0.35))
 
-                        if isRefreshing && store.activePins.isEmpty {
-                            ForEach(0..<4, id: \.self) { _ in
-                                PinRowSkeleton()
-                            }
-                        } else if store.activePins.isEmpty {
-                            Text("Enable pins in Settings to control these zones.")
-                                .font(.appCaption)
-                                .foregroundStyle(.secondary)
-                                .padding(.vertical, 4)
-                        } else {
-                            ForEach(store.activePins) { pin in
-                                PinControlRow(pin: pin,
-                                              durationBinding: binding(for: pin),
-                                              onToggle: togglePin(_:desiredState:),
-                                              onRun: runPin(_:minutes:))
-                                    .moveDisabled(editMode?.wrappedValue != .active)
-                            }
-                            .onMove(perform: movePins)
-                        }
+                if isRefreshing && store.activePins.isEmpty {
+                    ForEach(0..<4, id: \.self) { _ in
+                        PinRowSkeleton()
                     }
+                } else if store.activePins.isEmpty {
+                    Text("Enable pins in Settings to control these zones.")
+                        .font(.appCaption)
+                        .foregroundStyle(.secondary)
+                        .padding(.vertical, 4)
+                } else {
+                    List {
+                        ForEach(store.activePins) { pin in
+                            PinControlRow(pin: pin,
+                                          durationBinding: binding(for: pin),
+                                          onToggle: togglePin(_:desiredState:),
+                                          onRun: runPin(_:minutes:))
+                                .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(Color.clear)
+                                .moveDisabled(editMode?.wrappedValue != .active)
+                        }
+                        .onMove(perform: movePins)
+                    }
+                    .frame(maxHeight: listHeight)
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    .scrollDisabled(true)
                 }
             }
-            .listRowInsets(EdgeInsets(top: 12, leading: 0, bottom: 12, trailing: 0))
-            .listRowBackground(Color.clear)
-            .listRowSeparator(.hidden)
-        } header: {
-            Text("Pin Controls")
-                .font(.appHeadline)
-                .foregroundStyle(.secondary)
         }
+        .accessibilityElement(children: .contain)
         .onChange(of: store.activePins) { _, newPins in
             let valid = Set(newPins.map(\.pin))
             durationInputs = durationInputs.filter { valid.contains($0.key) }
         }
+    }
+
+    private var listHeight: CGFloat {
+        let rowHeight: CGFloat = 96
+        let total = CGFloat(store.activePins.count) * rowHeight
+        return min(max(total, rowHeight), 480)
     }
 
     /// Header row containing the disclosure toggle and reorder control.

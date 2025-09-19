@@ -44,7 +44,7 @@
 		6251FBAE2E7C7DCF001856FD /* ScheduleGroupDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB692E7C7DCF001856FD /* ScheduleGroupDTO.swift */; };
 		6251FBAF2E7C7DCF001856FD /* DiscoveryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB7C2E7C7DCF001856FD /* DiscoveryViewModel.swift */; };
 		6251FBB02E7C7DCF001856FD /* ScheduleDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB672E7C7DCF001856FD /* ScheduleDraft.swift */; };
-		6251FBB12E7C7DCF001856FD /* RainCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB822E7C7DCF001856FD /* RainCardView.swift */; };
+            6251FBB12E7C7DCF001856FD /* RainStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB822E7C7DCF001856FD /* RainStatusView.swift */; };
 		6251FBB22E7C7DCF001856FD /* APIError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB612E7C7DCF001856FD /* APIError.swift */; };
 		6251FBB32E7C7DCF001856FD /* AuthenticationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FBB42E7C7DCF001856FD /* AuthenticationController.swift */; };
 /* End PBXBuildFile section */
@@ -95,7 +95,7 @@
 		6251FB7F2E7C7DCF001856FD /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		6251FB802E7C7DCF001856FD /* PinRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinRowView.swift; sourceTree = "<group>"; };
 		6251FB812E7C7DCF001856FD /* PinsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinsListView.swift; sourceTree = "<group>"; };
-		6251FB822E7C7DCF001856FD /* RainCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RainCardView.swift; sourceTree = "<group>"; };
+            6251FB822E7C7DCF001856FD /* RainStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RainStatusView.swift; sourceTree = "<group>"; };
 		6251FB832E7C7DCF001856FD /* ScheduleEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleEditorView.swift; sourceTree = "<group>"; };
 		6251FB842E7C7DCF001856FD /* ScheduleRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleRowView.swift; sourceTree = "<group>"; };
 		6251FB852E7C7DCF001856FD /* SchedulesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchedulesView.swift; sourceTree = "<group>"; };
@@ -238,7 +238,7 @@
 				6251FB7F2E7C7DCF001856FD /* DashboardView.swift */,
 				6251FB802E7C7DCF001856FD /* PinRowView.swift */,
 				6251FB812E7C7DCF001856FD /* PinsListView.swift */,
-				6251FB822E7C7DCF001856FD /* RainCardView.swift */,
+                            6251FB822E7C7DCF001856FD /* RainStatusView.swift */,
 				6251FB832E7C7DCF001856FD /* ScheduleEditorView.swift */,
 				6251FB842E7C7DCF001856FD /* ScheduleRowView.swift */,
 				6251FB852E7C7DCF001856FD /* SchedulesView.swift */,
@@ -431,7 +431,7 @@
 				6251FBAE2E7C7DCF001856FD /* ScheduleGroupDTO.swift in Sources */,
 				6251FBAF2E7C7DCF001856FD /* DiscoveryViewModel.swift in Sources */,
 				6251FBB02E7C7DCF001856FD /* ScheduleDraft.swift in Sources */,
-				6251FBB12E7C7DCF001856FD /* RainCardView.swift in Sources */,
+                            6251FBB12E7C7DCF001856FD /* RainStatusView.swift in Sources */,
 				6251FBB22E7C7DCF001856FD /* APIError.swift in Sources */,
 				6251FBB32E7C7DCF001856FD /* AuthenticationController.swift in Sources */,
 			);
