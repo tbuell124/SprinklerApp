@@ -15,9 +15,11 @@ private let settingsRelativeFormatter: RelativeDateTimeFormatter = {
 /// Settings screen redesigned around card-based sections for clarity and modern aesthetics.
 struct SettingsView: View {
     @EnvironmentObject private var store: ConnectivityStore
+    @EnvironmentObject private var sprinklerStore: SprinklerStore
     @FocusState private var isURLFieldFocused: Bool
     @StateObject private var discoveryViewModel = DiscoveryViewModel()
     @State private var showCopiedAlert = false
+    @State private var isShowingLogs = false
 
     var body: some View {
         NavigationStack {
@@ -31,19 +33,38 @@ struct SettingsView: View {
                     VStack(spacing: 28) {
                         SettingsHeroCard(state: store.state,
                                          baseURL: store.baseURLString,
-                                         lastChecked: store.lastCheckedDate)
+                                         lastChecked: store.lastTestResult?.date ?? store.lastCheckedDate,
+                                         lastResult: store.lastTestResult)
 
                         ConnectionSettingsCard(baseURL: $store.baseURLString,
                                                isChecking: store.isChecking,
                                                state: store.state,
                                                validationMessage: validationMessage,
+                                               lastResult: store.lastTestResult,
+                                               lastChecked: store.lastTestResult?.date ?? store.lastCheckedDate,
                                                focus: $isURLFieldFocused,
                                                onCommit: runHealthCheck,
-                                               onCopy: copyAddressToPasteboard)
+                                               onCopy: copyAddressToPasteboard,
+                                               onViewLogs: { isShowingLogs = true })
+
+                        RainDelaySettingsCard(store: sprinklerStore,
+                                               onSave: {
+                                                   Task { await sprinklerStore.saveRainSettings() }
+                                               })
+
+                        NavigationLink {
+                            PinSettingsView()
+                        } label: {
+                            PinManagementCard(activePins: sprinklerStore.activePins.count,
+                                              totalPins: sprinklerStore.pins.count)
+                        }
+                        .buttonStyle(.plain)
 
                         DiscoveryCard(viewModel: discoveryViewModel,
+                                      logs: Array(store.recentLogs.prefix(3)),
                                       onSelect: useDiscoveredDevice,
-                                      onRefresh: refreshDiscovery)
+                                      onRefresh: refreshDiscovery,
+                                      onViewLogs: { isShowingLogs = true })
 
                         HelpfulSettingsTipsCard()
                     }
@@ -61,6 +82,9 @@ struct SettingsView: View {
             }
             .onAppear { discoveryViewModel.start() }
             .onDisappear { discoveryViewModel.stop() }
+            .sheet(isPresented: $isShowingLogs) {
+                ConnectionLogsView(logs: store.recentLogs)
+            }
         }
     }
 
@@ -74,6 +98,10 @@ struct SettingsView: View {
 
     /// Consolidated validation message presented underneath the quick status badge.
     private var validationMessage: String? {
+        if let inline = store.validationMessage, !inline.isEmpty {
+            return inline
+        }
+
         switch store.state {
         case .connected:
             return nil
@@ -123,6 +151,7 @@ private struct SettingsHeroCard: View {
     let state: ConnectivityState
     let baseURL: String
     let lastChecked: Date?
+    let lastResult: ConnectionTestLog?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -157,16 +186,23 @@ private struct SettingsHeroCard: View {
                 Spacer()
             }
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Configured URL")
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Configured Address")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Text(baseURL)
                     .font(.subheadline.monospaced())
                     .foregroundStyle(.primary)
 
+                if let lastResult {
+                    Text(lastResult.message)
+                        .font(.caption)
+                        .foregroundStyle(lastResult.outcome == .success ? Color.appSuccess : Color.appDanger)
+                        .accessibilityLabel("Last test result: \(lastResult.message)")
+                }
+
                 if let lastChecked {
-                    Text("Last checked \(settingsRelativeFormatter.localizedString(for: lastChecked, relativeTo: .now))")
+                    Text("Last tested \(settingsRelativeFormatter.localizedString(for: lastChecked, relativeTo: .now))")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
@@ -191,9 +227,12 @@ private struct ConnectionSettingsCard: View {
     let isChecking: Bool
     let state: ConnectivityState
     let validationMessage: String?
+    let lastResult: ConnectionTestLog?
+    let lastChecked: Date?
     let focus: FocusState<Bool>.Binding
     let onCommit: () -> Void
     let onCopy: () -> Void
+    let onViewLogs: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -211,6 +250,8 @@ private struct ConnectionSettingsCard: View {
                     .disableAutocorrection(true)
                     .textContentType(.URL)
                     .focused(focus)
+                    .accessibilityLabel("Controller address")
+                    .accessibilityHint("Enter the Raspberry Pi host name or IP address.")
                     .padding(.vertical, 12)
                     .padding(.horizontal, 16)
                     .background(Color.appSecondaryBackground.opacity(0.6))
@@ -230,6 +271,8 @@ private struct ConnectionSettingsCard: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(isChecking || baseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .accessibilityLabel("Test connection")
+                    .accessibilityHint("Send a request to the sprinkler controller to verify connectivity.")
 
                     Button(action: onCopy) {
                         Label("Copy", systemImage: "doc.on.doc")
@@ -238,6 +281,8 @@ private struct ConnectionSettingsCard: View {
                     }
                     .buttonStyle(.bordered)
                     .disabled(baseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .accessibilityLabel("Copy controller address")
+                    .accessibilityHint("Copies the configured address to the clipboard.")
                 }
             }
 
@@ -249,6 +294,28 @@ private struct ConnectionSettingsCard: View {
                     .foregroundStyle(.secondary)
                     .accessibilityLabel("Connection error: \(validationMessage)")
             }
+
+            if let lastResult {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(lastResult.message)
+                        .font(.footnote)
+                        .foregroundStyle(lastResult.outcome == .success ? Color.appSuccess : Color.appDanger)
+                        .accessibilityLabel("Last test result: \(lastResult.message)")
+
+                    if let lastChecked {
+                        Text("Last tested \(settingsRelativeFormatter.localizedString(for: lastChecked, relativeTo: .now))")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            Button(action: onViewLogs) {
+                Label("View Connection Logs", systemImage: "list.bullet.rectangle")
+                    .font(.subheadline.weight(.medium))
+            }
+            .buttonStyle(.bordered)
+            .accessibilityHint("Opens the detailed history of recent connection checks.")
         }
         .padding(24)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -259,11 +326,219 @@ private struct ConnectionSettingsCard: View {
     }
 }
 
+/// Card that highlights quick access to pin management features.
+private struct PinManagementCard: View {
+    let activePins: Int
+    let totalPins: Int
+
+    private var subtitle: String {
+        if totalPins == 0 {
+            return "Connect to the controller to load configured pins."
+        }
+        return "Manage naming, activation, and ordering for your zones."
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Pin Settings")
+                        .font(.headline)
+                    Text(subtitle)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "slider.horizontal.3")
+                    .font(.title3)
+                    .foregroundStyle(.accentColor)
+                    .padding(12)
+                    .background(Color.appSecondaryBackground.opacity(0.6))
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+
+            HStack(spacing: 12) {
+                Label("Active: \(activePins)", systemImage: "bolt.fill")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Label("Total: \(totalPins)", systemImage: "square.stack.3d.up")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.appBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 4)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Pin settings. \(activePins) active pins out of \(totalPins).")
+        .accessibilityHint("Opens controls for renaming and activating sprinkler zones.")
+    }
+}
+
+/// Card that surfaces automatic rain delay options and backend persistence.
+private struct RainDelaySettingsCard: View {
+    @ObservedObject var store: SprinklerStore
+    let onSave: () -> Void
+
+    @State private var showDisableConfirmation = false
+
+    private var zipCodeBinding: Binding<String> {
+        Binding(get: { store.rainSettingsZip },
+                set: { newValue in
+                    let filtered = newValue.filter(\.isNumber)
+                    let truncated = String(filtered.prefix(5))
+                    store.updateRainSettings(zip: truncated)
+                })
+    }
+
+    private var thresholdBinding: Binding<String> {
+        Binding(get: { store.rainSettingsThreshold },
+                set: { newValue in
+                    let filtered = newValue.filter(\.isNumber)
+                    let truncated = String(filtered.prefix(3))
+                    store.updateRainSettings(threshold: truncated)
+                })
+    }
+
+    private var canEnableAutomation: Bool {
+        isZipValid && isThresholdValid
+    }
+
+    private var isZipValid: Bool {
+        let trimmed = store.rainSettingsZip.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.count == 5 && trimmed.allSatisfy(\.isNumber)
+    }
+
+    private var isThresholdValid: Bool {
+        let trimmed = store.rainSettingsThreshold.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let value = Int(trimmed), (0...100).contains(value) {
+            return true
+        }
+        return false
+    }
+
+    private var automationBinding: Binding<Bool> {
+        Binding(get: { store.rainSettingsIsEnabled },
+                set: { newValue in
+                    if newValue {
+                        store.setRainAutomationEnabled(true)
+                    } else {
+                        showDisableConfirmation = true
+                    }
+                })
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Rain Delay Settings")
+                .font(.headline)
+
+            Text("Automatically pause watering when the forecast exceeds your configured threshold.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            Toggle(isOn: automationBinding) {
+                Text("Automatic rain delay")
+                    .font(.subheadline.weight(.semibold))
+            }
+            .disabled(!canEnableAutomation || store.isUpdatingRainAutomation)
+            .accessibilityLabel("Automatic rain delay")
+            .accessibilityHint("Pause schedules when rain probability exceeds the configured threshold.")
+
+            if store.isUpdatingRainAutomation {
+                ProgressView()
+                    .progressViewStyle(.circular)
+                    .accessibilityHidden(true)
+            }
+
+            VStack(spacing: 12) {
+                TextField("ZIP Code", text: zipCodeBinding)
+                    .keyboardType(.numberPad)
+                    .textInputAutocapitalization(.never)
+                    .disableAutocorrection(true)
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, 16)
+                    .background(Color.appSecondaryBackground.opacity(0.6))
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .accessibilityLabel("ZIP code")
+                    .accessibilityHint("Enter the ZIP code used for rain forecasts.")
+
+                TextField("Rain threshold (%)", text: thresholdBinding)
+                    .keyboardType(.numberPad)
+                    .textInputAutocapitalization(.never)
+                    .disableAutocorrection(true)
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, 16)
+                    .background(Color.appSecondaryBackground.opacity(0.6))
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .accessibilityLabel("Rain threshold percentage")
+                    .accessibilityHint("Enter the forecast chance that should trigger a rain delay.")
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                if !isZipValid {
+                    Text("ZIP code must be five digits.")
+                        .font(.caption)
+                        .foregroundStyle(.appDanger)
+                }
+                if !isThresholdValid {
+                    Text("Threshold must be between 0% and 100%.")
+                        .font(.caption)
+                        .foregroundStyle(.appDanger)
+                }
+                if !canEnableAutomation {
+                    Text("Automation requires both a ZIP code and rain threshold.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Button(action: onSave) {
+                if store.isSavingRainSettings {
+                    ProgressView()
+                        .progressViewStyle(.circular)
+                        .frame(maxWidth: .infinity)
+                } else {
+                    Text("Save Settings")
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(store.isSavingRainSettings)
+            .accessibilityHint("Persist rain delay preferences to the sprinkler controller.")
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.appBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 4)
+        .alert("Disable automatic rain delay?", isPresented: $showDisableConfirmation) {
+            Button("Disable", role: .destructive) {
+                store.setRainAutomationEnabled(false)
+                showDisableConfirmation = false
+            }
+            Button("Cancel", role: .cancel) {
+                showDisableConfirmation = false
+            }
+        } message: {
+            Text("Manual confirmation prevents accidental watering during storms.")
+        }
+    }
+}
+
 /// Displays discovered Bonjour devices in a stylised card.
 private struct DiscoveryCard: View {
     @ObservedObject var viewModel: DiscoveryViewModel
+    let logs: [ConnectionTestLog]
     let onSelect: (DiscoveredDevice) -> Void
     let onRefresh: () -> Void
+    let onViewLogs: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -321,6 +596,25 @@ private struct DiscoveryCard: View {
                 }
             }
 
+            if !logs.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Divider()
+                    Text("Recent Connection Tests")
+                        .font(.subheadline.weight(.semibold))
+                    VStack(spacing: 8) {
+                        ForEach(logs) { log in
+                            ConnectionLogPreviewRow(log: log)
+                        }
+                    }
+                    Button(action: onViewLogs) {
+                        Label("View All Logs", systemImage: "clock.arrow.circlepath")
+                            .font(.footnote.weight(.semibold))
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityHint("Opens the detailed list of connection attempts.")
+                }
+            }
+
             HStack {
                 Spacer()
                 Button("Refresh", action: onRefresh)
@@ -338,6 +632,103 @@ private struct DiscoveryCard: View {
     private func deviceSubtitle(for device: DiscoveredDevice) -> String {
         let endpoint = device.host ?? device.ip ?? "—"
         return "\(endpoint):\(device.port)"
+    }
+}
+
+/// Compact row used to preview a single connection test result inside the discovery card.
+private struct ConnectionLogPreviewRow: View {
+    let log: ConnectionTestLog
+
+    private var accentColor: Color {
+        log.outcome == .success ? .appSuccess : .appDanger
+    }
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: log.outcome == .success ? "checkmark.circle.fill" : "xmark.octagon.fill")
+                .foregroundStyle(accentColor)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(log.message)
+                    .font(.footnote)
+                    .foregroundStyle(.primary)
+                HStack(spacing: 6) {
+                    Text(log.outcome.label)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(accentColor)
+                    if let latency = log.formattedLatency {
+                        Text(latency)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            Spacer()
+            Text(settingsRelativeFormatter.localizedString(for: log.date, relativeTo: .now))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(log.outcome.label) \(log.message)")
+    }
+}
+
+/// Full screen sheet that lists connection attempts with timestamps and latency readings.
+private struct ConnectionLogsView: View {
+    let logs: [ConnectionTestLog]
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if logs.isEmpty {
+                    VStack(spacing: 12) {
+                        Image(systemName: "tray")
+                            .font(.largeTitle)
+                            .foregroundStyle(.secondary)
+                        Text("No Connection Logs")
+                            .font(.headline)
+                        Text("Run a connection test to capture history.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 32)
+                } else {
+                    ForEach(logs) { log in
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 8) {
+                                Image(systemName: log.outcome == .success ? "checkmark.circle.fill" : "xmark.octagon.fill")
+                                    .foregroundStyle(log.outcome == .success ? Color.appSuccess : Color.appDanger)
+                                Text(log.outcome.label)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(log.outcome == .success ? Color.appSuccess : Color.appDanger)
+                                Spacer()
+                                Text(settingsRelativeFormatter.localizedString(for: log.date, relativeTo: .now))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Text(log.message)
+                                .font(.body)
+                                .foregroundStyle(.primary)
+                            if let latency = log.formattedLatency {
+                                Text("Latency: \(latency)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("\(log.outcome.label) at \(settingsRelativeFormatter.localizedString(for: log.date, relativeTo: .now)). \(log.message)")
+                    }
+                }
+            }
+            .navigationTitle("Connection Logs")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
     }
 }
 

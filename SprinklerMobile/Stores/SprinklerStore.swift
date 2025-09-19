@@ -71,6 +71,7 @@ final class SprinklerStore: ObservableObject {
     @Published var rainSettingsIsEnabled: Bool = false
     @Published var isSavingRainSettings: Bool = false
     @Published var isUpdatingRainAutomation: Bool = false
+    private var rainSettingsSaveTask: Task<Void, Never>?
 
     // Connection state
     @Published var connectionStatus: ConnectionStatus = .idle
@@ -437,29 +438,64 @@ final class SprinklerStore: ObservableObject {
     }
 
     func saveRainSettings() async {
+        rainSettingsSaveTask?.cancel()
+        rainSettingsSaveTask = nil
+        await pushRainSettingsIfValid(showSuccessToast: true)
+    }
+
+    func updateRainSettings(zip: String? = nil, threshold: String? = nil) {
+        if let zip { rainSettingsZip = zip }
+        if let threshold { rainSettingsThreshold = threshold }
+
+        rainSettingsSaveTask?.cancel()
+        rainSettingsSaveTask = Task { [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            await self.pushRainSettingsIfValid(showSuccessToast: false)
+        }
+    }
+
+    private func pushRainSettingsIfValid(showSuccessToast: Bool) async {
         let trimmedZip = rainSettingsZip.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let normalizedZip = normalizeZipCode(trimmedZip) else {
-            showToast(message: "Enter a valid ZIP code", style: .error)
+            if showSuccessToast {
+                showToast(message: "Enter a valid ZIP code", style: .error)
+            }
             return
         }
 
         guard let threshold = parseThresholdPercent(rainSettingsThreshold) else {
-            showToast(message: "Threshold must be between 0 and 100", style: .error)
+            if showSuccessToast {
+                showToast(message: "Threshold must be between 0 and 100", style: .error)
+            }
             return
         }
 
         rainSettingsZip = normalizedZip
         rainSettingsThreshold = String(threshold)
+        rainSettingsSaveTask = nil
+        await pushRainSettings(zip: normalizedZip,
+                               threshold: threshold,
+                               isEnabled: rainSettingsIsEnabled,
+                               showSuccessToast: showSuccessToast)
+    }
+
+    private func pushRainSettings(zip: String,
+                                  threshold: Int,
+                                  isEnabled: Bool,
+                                  showSuccessToast: Bool) async {
         isSavingRainSettings = true
         defer { isSavingRainSettings = false }
 
         do {
-            try await client.updateRainSettings(zipCode: normalizedZip,
+            try await client.updateRainSettings(zipCode: zip,
                                                 thresholdPercent: threshold,
-                                                isEnabled: rainSettingsIsEnabled)
-            rainAutomationEnabled = rainSettingsIsEnabled
+                                                isEnabled: isEnabled)
+            rainAutomationEnabled = isEnabled
             await refresh()
-            showToast(message: "Rain settings saved", style: .success)
+            if showSuccessToast {
+                showToast(message: "Rain settings saved", style: .success)
+            }
         } catch {
             showToast(message: toastMessage(for: error, defaultMessage: "Failed to save rain settings"),
                       style: .error)
