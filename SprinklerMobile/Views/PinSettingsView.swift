@@ -46,8 +46,8 @@ struct PinSettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { EditButton() }
         .onAppear { syncDrafts(force: true) }
-        .onChange(of: store.pins) { _ in syncDrafts(force: false) }
-        .onChange(of: focusedField) { newFocus in
+        .onChange(of: store.pins, initial: false) { _, _ in syncDrafts(force: false) }
+        .onChange(of: focusedField, initial: false) { _, newFocus in
             if let lastFocusedPin, lastFocusedPin != newFocus {
                 persistDraft(for: lastFocusedPin)
             }

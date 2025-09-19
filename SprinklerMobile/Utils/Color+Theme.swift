@@ -3,7 +3,7 @@ import SwiftUI
 /// Provides ShapeStyle accessors for theme colour tokens so that `.foregroundStyle(.token)`
 /// and similar APIs compile across the codebase. The computed properties simply forward to
 /// the canonical definitions declared in `Theme.swift`.
-extension ShapeStyle where Self == Color {
+extension ShapeStyle {
     /// Primary canvas colour used for top-level backgrounds.
     static var appPrimaryBackground: Color { Color.appPrimaryBackground }
 
