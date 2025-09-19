@@ -31,10 +31,36 @@ final class SprinklerStore: ObservableObject {
         let latency: TimeInterval
     }
 
+    struct ScheduleRun: Identifiable, Equatable {
+        let schedule: ScheduleDTO
+        let startDate: Date
+        let endDate: Date
+
+        var id: String {
+            "\(schedule.id)-\(startDate.timeIntervalSince1970)"
+        }
+
+        /// Indicates whether the supplied date falls within this run's active window.
+        func contains(_ date: Date) -> Bool {
+            if endDate <= startDate {
+                return abs(date.timeIntervalSince(startDate)) < 60
+            }
+            return startDate <= date && date < endDate
+        }
+    }
+
     // Remote resources
     @Published private(set) var pins: [PinDTO] = PinDTO.makeDefaultSprinklerPins()
     var activePins: [PinDTO] {
         pins.filter { $0.isEnabled ?? true }
+    }
+
+    var currentScheduleRun: ScheduleRun? {
+        scheduleTimeline(relativeTo: Date()).current
+    }
+
+    var nextScheduleRun: ScheduleRun? {
+        scheduleTimeline(relativeTo: Date()).next
     }
     @Published private(set) var schedules: [ScheduleDTO] = []
     @Published private(set) var scheduleGroups: [ScheduleGroupDTO] = []
@@ -221,6 +247,77 @@ final class SprinklerStore: ObservableObject {
                         pins[revertIndex].isActive = previousState
                     }
                     showToast(message: "Failed to update pin", style: .error)
+                }
+            }
+        }
+    }
+
+    func runPin(_ pin: PinDTO, forMinutes minutes: Int) {
+        let sanitizedMinutes = max(0, minutes)
+        guard sanitizedMinutes > 0 else {
+            showToast(message: "Enter a duration greater than zero.", style: .error)
+            return
+        }
+        guard let index = pins.firstIndex(where: { $0.id == pin.id }) else { return }
+        if pins[index].isActive ?? false {
+            showToast(message: "\(pin.displayName) is already running.", style: .error)
+            return
+        }
+
+        pins[index].isActive = true
+
+        let (seconds, secondsOverflow) = sanitizedMinutes.multipliedReportingOverflow(by: 60)
+        if secondsOverflow {
+            pins[index].isActive = false
+            showToast(message: "Duration is too long.", style: .error)
+            return
+        }
+
+        let (nanoseconds, nanoOverflow) = UInt64(seconds).multipliedReportingOverflow(by: 1_000_000_000)
+        if nanoOverflow {
+            pins[index].isActive = false
+            showToast(message: "Duration is too long.", style: .error)
+            return
+        }
+
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await self.client.setPin(pin.pin, on: true)
+                await MainActor.run {
+                    self.showToast(message: "Started \(pin.displayName) for \(sanitizedMinutes) minutes", style: .success)
+                }
+            } catch {
+                await MainActor.run {
+                    if let revertIndex = self.pins.firstIndex(where: { $0.id == pin.id }) {
+                        self.pins[revertIndex].isActive = false
+                    }
+                    self.showToast(message: "Failed to start \(pin.displayName)", style: .error)
+                }
+                return
+            }
+
+            do {
+                try await Task.sleep(nanoseconds: nanoseconds)
+            } catch {
+                // Cancellation simply accelerates the shutdown path below.
+            }
+
+            do {
+                try await self.client.setPin(pin.pin, on: false)
+            } catch {
+                await MainActor.run {
+                    if let revertIndex = self.pins.firstIndex(where: { $0.id == pin.id }) {
+                        self.pins[revertIndex].isActive = false
+                    }
+                    self.showToast(message: "Unable to stop \(pin.displayName). Verify the controller state.", style: .error)
+                }
+                return
+            }
+
+            await MainActor.run {
+                if let revertIndex = self.pins.firstIndex(where: { $0.id == pin.id }) {
+                    self.pins[revertIndex].isActive = false
                 }
             }
         }
@@ -676,6 +773,103 @@ final class SprinklerStore: ObservableObject {
             return apiError.localizedDescription
         }
         return defaultMessage
+    }
+
+    private func scheduleTimeline(relativeTo date: Date, calendar: Calendar = Calendar.current) -> (current: ScheduleRun?, next: ScheduleRun?) {
+        let occurrences = scheduleOccurrences(relativeTo: date, calendar: calendar)
+        let current = occurrences.first { $0.contains(date) }
+        let upcoming = occurrences.first { $0.startDate > date }
+        return (current, upcoming)
+    }
+
+    private func scheduleOccurrences(relativeTo date: Date, calendar: Calendar = Calendar.current) -> [ScheduleRun] {
+        guard !schedules.isEmpty else { return [] }
+
+        let startOfDay = calendar.startOfDay(for: date)
+        var runs: [ScheduleRun] = []
+
+        for schedule in schedules where schedule.isEnabled ?? true {
+            guard let startTime = schedule.startTime,
+                  let timeComponents = parseTimeComponents(from: startTime) else { continue }
+            let durationMinutes = max(schedule.durationMinutes ?? 0, 0)
+            let weekdays = resolvedWeekdays(for: schedule, calendar: calendar)
+
+            for offset in -1...7 {
+                guard let day = calendar.date(byAdding: .day, value: offset, to: startOfDay) else { continue }
+                let weekday = calendar.component(.weekday, from: day)
+                guard weekdays.contains(weekday),
+                      let startDate = calendar.date(bySettingHour: timeComponents.hour,
+                                                   minute: timeComponents.minute,
+                                                   second: 0,
+                                                   of: day) else { continue }
+                let endDate = calendar.date(byAdding: .minute, value: durationMinutes, to: startDate) ?? startDate
+                runs.append(ScheduleRun(schedule: schedule, startDate: startDate, endDate: endDate))
+            }
+        }
+
+        return runs.sorted { $0.startDate < $1.startDate }
+    }
+
+    private func parseTimeComponents(from string: String) -> (hour: Int, minute: Int)? {
+        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        let parts = trimmed.split(separator: ":")
+        guard parts.count == 2,
+              let hour = Int(parts[0]),
+              let minute = Int(parts[1]),
+              (0..<24).contains(hour),
+              (0..<60).contains(minute) else { return nil }
+        return (hour, minute)
+    }
+
+    private func resolvedWeekdays(for schedule: ScheduleDTO, calendar: Calendar) -> [Int] {
+        guard let days = schedule.days, !days.isEmpty else {
+            return Array(1...7)
+        }
+
+        var result: Set<Int> = []
+        for day in days {
+            if let value = weekdayIndex(for: day, calendar: calendar) {
+                result.insert(value)
+            }
+        }
+
+        if result.isEmpty {
+            return Array(1...7)
+        }
+        return result.sorted()
+    }
+
+    private func weekdayIndex(for string: String, calendar: Calendar) -> Int? {
+        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !trimmed.isEmpty else { return nil }
+
+        let symbolSets = [calendar.weekdaySymbols, calendar.shortWeekdaySymbols, calendar.veryShortWeekdaySymbols]
+        for symbols in symbolSets {
+            if let index = symbols.firstIndex(where: { $0.lowercased() == trimmed }) {
+                return index + 1
+            }
+        }
+
+        let englishFull = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
+        if let index = englishFull.firstIndex(of: trimmed) {
+            return index + 1
+        }
+
+        let englishShort = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
+        if let index = englishShort.firstIndex(of: trimmed) {
+            return index + 1
+        }
+
+        let englishMini = ["su", "mo", "tu", "we", "th", "fr", "sa"]
+        if let index = englishMini.firstIndex(of: trimmed) {
+            return index + 1
+        }
+
+        if let numeric = Int(trimmed), (1...7).contains(numeric) {
+            return numeric
+        }
+
+        return nil
     }
 
     /// Persists the latest in-memory status so future launches (and offline
