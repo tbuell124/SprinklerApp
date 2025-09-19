@@ -6,6 +6,43 @@ This repository contains the SwiftUI iOS client that talks to your Raspberry Pi 
 - If you need a comprehensive step-by-step walkthrough for provisioning a brand-new Raspberry Pi (including all SSH commands, Python backend code, and systemd automation), read the dedicated guide in [`RaspberryPiSetup.md`](RaspberryPiSetup.md).
 - The sections below continue to focus on the iOS application, its architecture, and high-level backend integration notes.
 
+## Raspberry Pi Backend Quick Reference
+
+The live Raspberry Pi build currently uses a FastAPI backend that exposes `/api/status`, `/api/pins`, and `/api/pin/{pin}` endpoints. To keep the hardware safe:
+
+- Only the following 16 BCM GPIO pins are permitted to toggle sprinkler relays: `4, 5, 6, 9, 10, 11, 12, 13, 16, 17, 19, 20, 21, 22, 26, 27`.
+- The `.env` file should include:
+  ```dotenv
+  SPRINKLER_GPIO_ALLOW=12,16,20,21,26,19,13,6,5,11,9,10,22,27,17,4
+  SPRINKLER_GPIO_DENY=2,3,14,15
+  ```
+  This configuration blocks I²C and UART pins by default while still allowing the 16 wired relays.
+- After updating the environment file run:
+  ```bash
+  sudo systemctl daemon-reload
+  sudo systemctl restart sprinkler.service
+  sudo systemctl status sprinkler.service --no-pager
+  ```
+
+### Verifying the allowed pins list
+
+1. (Optional) Install `jq` for prettier JSON in your terminal:
+   ```bash
+   sudo apt-get update
+   sudo apt-get install -y jq
+   ```
+2. Inspect the backend status:
+   ```bash
+   curl -s http://127.0.0.1:5000/api/status | jq
+   ```
+   You should see exactly the 16 pins listed above under the `"pins"` key.
+3. Spot-check a few relays with:
+   ```bash
+   curl -s -X POST http://127.0.0.1:5000/api/pin/4/on | jq
+   curl -s -X POST http://127.0.0.1:5000/api/pin/4/off | jq
+   ```
+   Repeat for other pins (for example `27` or `12`) to confirm each zone toggles the correct relay.
+
 ## iOS Client Overview
 
 The Sprink! iOS app communicates with a FastAPI backend hosted on your Raspberry Pi. Major features include:

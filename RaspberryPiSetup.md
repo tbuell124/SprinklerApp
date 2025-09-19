@@ -19,6 +19,29 @@ This guide walks through provisioning a brand-new Raspberry Pi to host the Sprin
 - 24VAC sprinkler valves wired through a relay board to the Pi GPIO header
 - Stable 5V power supply capable of powering the Pi plus relays
 
+#### Relay wiring map (current production build)
+
+| BCM GPIO | Physical Pin | Notes |
+| --- | --- | --- |
+| 12 | 32 | Left-most relay when facing the screw terminals |
+| 16 | 36 | |
+| 20 | 38 | |
+| 21 | 40 | |
+| 26 | 37 | |
+| 19 | 35 | |
+| 13 | 33 | |
+| 6  | 31 | |
+| 5  | 29 | |
+| 11 | 23 | |
+| 9  | 21 | SPI MISO repurposed for relay control |
+| 10 | 19 | SPI MOSI repurposed for relay control |
+| 22 | 15 | |
+| 27 | 13 | |
+| 17 | 11 | |
+| 4  | 7  | Right-most relay |
+
+Only these 16 GPIO pins should be exposed by the backend. Power, ground, I²C (2/3), and UART (14/15) remain locked out.
+
 ### Workstation (macOS)
 - [Raspberry Pi Imager](https://www.raspberrypi.com/software/)
 - SSH client (macOS Terminal works out of the box)
@@ -385,13 +408,18 @@ Paste the template below and update values for your hardware layout and secrets.
 ```dotenv
 SPRINKLER_API_PORT=8000
 SPRINKLER_API_TOKEN=change-me-to-a-strong-token
-SPRINKLER_GPIO_PINS=4,17,27,22,5,6,13,19
+SPRINKLER_GPIO_ALLOW=12,16,20,21,26,19,13,6,5,11,9,10,22,27,17,4
+SPRINKLER_GPIO_DENY=2,3,14,15
+# Legacy deployments can fall back to SPRINKLER_GPIO_PINS if you are still using sprinkler_service.py
+# SPRINKLER_GPIO_PINS=4,17,27,22,5,6,13,19
 RAIN_LOCK_DEFAULT_HOURS=24
 SPRINKLER_ALLOWED_ORIGINS=
 ```
 
 - `SPRINKLER_API_TOKEN`: Strong bearer token required by every HTTP request.
-- `SPRINKLER_GPIO_PINS`: Ordered list of GPIO pins matching zone numbers. Update to match your wiring.
+- `SPRINKLER_GPIO_ALLOW`: Comma-separated allow list for relay control. Only these pins are exposed over the API.
+- `SPRINKLER_GPIO_DENY`: Additional safety block list. Keep `2,3,14,15` to avoid I²C/UART toggling.
+- `SPRINKLER_GPIO_PINS`: **Legacy option** for the original `sprinkler_service.py`. Prefer the allow/deny configuration for new deployments.
 - `SPRINKLER_ALLOWED_ORIGINS`: Optional comma-separated list for enabling CORS if you integrate a web UI later.
 
 Load the environment variables automatically by creating a systemd drop-in (done in the next section) or exporting them manually for testing:
@@ -421,6 +449,27 @@ curl -H "Authorization: Bearer change-me-to-a-strong-token" http://sprinkler.loc
 ```
 
 Confirm the JSON payload lists your zones and that no errors appear in the running server. Stop the server with `Ctrl+C` once validated.
+
+### 7.1 Confirm the allowed pins list
+
+After the service is running (whether manually or via systemd) double-check that only the expected 16 GPIO pins appear.
+
+1. (Optional) Install `jq` for easier-to-read JSON:
+   ```bash
+   sudo apt-get update
+   sudo apt-get install -y jq
+   ```
+2. Query the backend locally on the Pi:
+   ```bash
+   curl -s http://127.0.0.1:5000/api/status | jq
+   ```
+   The `"pins"` field should list `4,5,6,9,10,11,12,13,16,17,19,20,21,22,26,27` (order may differ, but the set must match).
+3. Spot-check a relay to confirm it toggles correctly:
+   ```bash
+   curl -s -X POST http://127.0.0.1:5000/api/pin/4/on | jq
+   curl -s -X POST http://127.0.0.1:5000/api/pin/4/off | jq
+   ```
+   Repeat for a few other pins (for example `27` and `12`). Any pin outside the allow list should return a 404.
 
 ---
 
@@ -544,7 +593,7 @@ sudo journalctl -u sprinkler.service -f
 
 - **pigpiod not running:** `sudo systemctl status pigpiod --no-pager` and enable it if inactive.
 - **Authentication failures:** Ensure your HTTP client sends `Authorization: Bearer <token>` and the token matches `.env`.
-- **Zone misfires:** Double-check `SPRINKLER_GPIO_PINS` order and confirm wiring using a multimeter.
+- **Zone misfires:** Confirm the `SPRINKLER_GPIO_ALLOW` list matches the wiring order (or `SPRINKLER_GPIO_PINS` if you kept the legacy service) and verify each relay with the `/api/pin/{pin}` curl checks above.
 - **Service crashes at boot:** Inspect `/var/log/sprinkler.log` and `sudo journalctl -xe`. Missing environment variables or Python dependency mismatches are common culprits.
 - **Bonjour not visible:** Verify `avahi-daemon` status and that UDP/5353 is open on your network.
 
