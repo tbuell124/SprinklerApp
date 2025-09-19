@@ -351,7 +351,7 @@ private struct PinManagementCard: View {
                 Spacer()
                 Image(systemName: "slider.horizontal.3")
                     .font(.title3)
-                    .foregroundStyle(.accentColor)
+                    .foregroundStyle(.tint)
                     .padding(12)
                     .background(Color.appSecondaryBackground.opacity(0.6))
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -484,12 +484,12 @@ private struct RainDelaySettingsCard: View {
                 if !isZipValid {
                     Text("ZIP code must be five digits.")
                         .font(.caption)
-                        .foregroundStyle(.appDanger)
+                        .foregroundStyle(Color.appDanger)
                 }
                 if !isThresholdValid {
                     Text("Threshold must be between 0% and 100%.")
                         .font(.caption)
-                        .foregroundStyle(.appDanger)
+                        .foregroundStyle(Color.appDanger)
                 }
                 if !canEnableAutomation {
                     Text("Automation requires both a ZIP code and rain threshold.")
