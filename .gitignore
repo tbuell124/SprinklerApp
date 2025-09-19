@@ -1,1 +1,10 @@
-.build/
+# Xcode user-specific
+xcuserdata/
+*.xcuserstate
+
+# Derived data / temp
+DerivedData/
+build/
+
+# macOS cruft
+.DS_Store
