@@ -22,23 +22,23 @@ struct DashboardView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // A subtle background gradient keeps the dashboard feeling lively without
-                // overpowering the content so the cards remain the primary focus.
-                LinearGradient(colors: [Color.appBackground, Color.appSecondaryBackground],
-                               startPoint: .top,
-                               endPoint: .bottom)
+                LinearGradient.appCanvas
                     .ignoresSafeArea()
 
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 24) {
+                    VStack(alignment: .leading, spacing: 28) {
                         DashboardHeroCard(state: store.state,
                                           lastChecked: store.lastCheckedDate,
                                           baseURL: store.baseURLString,
                                           isLoading: store.isChecking)
 
-                        quickActionsSection
+                        DashboardQuickActionsSection(isChecking: store.isChecking,
+                                                      onRefresh: { Task { await store.refresh() } },
+                                                      onCopy: copyAddressToPasteboard)
 
-                        statusHighlightsSection
+                        DashboardStatusSection(state: store.state,
+                                               lastChecked: store.lastCheckedDate,
+                                               baseURL: store.baseURLString)
 
                         HelpfulTipsCard()
                     }
@@ -81,61 +81,6 @@ struct DashboardView: View {
         }
     }
 
-    /// Section that houses contextual quick actions for the controller.
-    private var quickActionsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Quick Actions")
-                .font(.title3.weight(.semibold))
-                .accessibilityAddTraits(.isHeader)
-
-            VStack(spacing: 12) {
-                QuickActionButton(title: store.isChecking ? "Checking…" : "Run Health Check",
-                                   subtitle: "Verifies that the controller is reachable right now.",
-                                   icon: "wave.3.left") {
-                    Task { await store.refresh() }
-                }
-                .disabled(store.isChecking)
-
-                QuickActionButton(title: "Copy Controller URL",
-                                   subtitle: "Share the configured address with another device.",
-                                   icon: "doc.on.doc") {
-                    copyAddressToPasteboard()
-                }
-            }
-        }
-    }
-
-    /// Section that highlights status information about connectivity and configuration.
-    private var statusHighlightsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Status Highlights")
-                .font(.title3.weight(.semibold))
-                .accessibilityAddTraits(.isHeader)
-
-            VStack(spacing: 12) {
-                StatusHighlightCard(title: "Reachability",
-                                    icon: store.state.statusIcon,
-                                    tint: store.state.statusColor,
-                                    value: store.state.statusTitle,
-                                    detail: store.state.statusMessage)
-
-                if let lastChecked = store.lastCheckedDate {
-                    StatusHighlightCard(title: "Last Checked",
-                                        icon: "clock.badge.checkmark",
-                                        tint: .blue,
-                                        value: lastChecked.formatted(date: .omitted, time: .shortened),
-                                        detail: dashboardRelativeFormatter.localizedString(for: lastChecked, relativeTo: .now))
-                }
-
-                StatusHighlightCard(title: "Controller Address",
-                                    icon: "network",
-                                    tint: .teal,
-                                    value: store.baseURLString,
-                                    detail: "Tap copy above to share this address with others.")
-            }
-        }
-    }
-
     /// Copies the configured controller address to the user's pasteboard with platform awareness.
     private func copyAddressToPasteboard() {
         #if os(iOS)
@@ -154,34 +99,113 @@ struct DashboardView: View {
     }
 }
 
-// MARK: - Supporting Views
+// MARK: - Sections
+
+private struct DashboardQuickActionsSection: View {
+    let isChecking: Bool
+    let onRefresh: () -> Void
+    let onCopy: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            DashboardSectionHeader(title: "Quick Actions")
+
+            VStack(spacing: 12) {
+                QuickActionCardButton(title: isChecking ? "Checking…" : "Run Health Check",
+                                       subtitle: "Verifies that the controller is reachable right now.",
+                                       icon: "wave.3.left",
+                                       action: onRefresh)
+                .disabled(isChecking)
+
+                QuickActionCardButton(title: "Copy Controller URL",
+                                       subtitle: "Share the configured address with another device.",
+                                       icon: "doc.on.doc",
+                                       action: onCopy)
+            }
+        }
+        .accessibilityElement(children: .contain)
+    }
+}
+
+private struct DashboardStatusSection: View {
+    let state: ConnectivityState
+    let lastChecked: Date?
+    let baseURL: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            DashboardSectionHeader(title: "Status Highlights")
+
+            VStack(spacing: 12) {
+                StatusHighlightCard(title: "Reachability",
+                                    icon: state.statusIcon,
+                                    tint: state.statusColor,
+                                    value: state.statusTitle,
+                                    detail: state.statusMessage)
+
+                if let lastChecked {
+                    StatusHighlightCard(title: "Last Checked",
+                                        icon: "clock.badge.checkmark",
+                                        tint: Color.appAccentPrimary,
+                                        value: lastChecked.formatted(date: .omitted, time: .shortened),
+                                        detail: dashboardRelativeFormatter.localizedString(for: lastChecked, relativeTo: .now))
+                }
+
+                StatusHighlightCard(title: "Controller Address",
+                                    icon: "network",
+                                    tint: Color.appAccentSecondary,
+                                    value: baseURL,
+                                    detail: "Tap copy above to share this address with others.")
+            }
+        }
+        .accessibilityElement(children: .contain)
+    }
+}
+
+private struct DashboardSectionHeader: View {
+    let title: String
+
+    var body: some View {
+        Text(title)
+            .font(.appHeadline)
+            .foregroundStyle(.primary)
+            .accessibilityAddTraits(.isHeader)
+    }
+}
+
+// MARK: - Cards
 
 /// A featured card that visualises the current connection state.
-private struct DashboardHeroCard: View {
+private struct DashboardHeroCard: CardView {
     let state: ConnectivityState
     let lastChecked: Date?
     let baseURL: String
     let isLoading: Bool
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top, spacing: 12) {
+    var cardConfiguration: CardConfiguration { .hero(accent: state.statusColor) }
+
+    var cardBody: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            HStack(alignment: .center, spacing: 16) {
                 ZStack {
                     Circle()
-                        .fill(state.statusColor.opacity(0.2))
-                        .frame(width: 56, height: 56)
+                        .fill(state.statusColor.opacity(0.22))
+                        .frame(width: 62, height: 62)
                     Image(systemName: state.statusIcon)
-                        .font(.system(size: 24, weight: .semibold))
+                        .font(.system(size: 28, weight: .semibold))
                         .foregroundStyle(state.statusColor)
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(state.statusTitle)
-                        .font(.title2.weight(.bold))
+                        .font(.appLargeTitle)
                         .foregroundStyle(.primary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+
                     if let message = state.statusMessage {
                         Text(message)
-                            .font(.callout)
+                            .font(.appBody)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -193,94 +217,87 @@ private struct DashboardHeroCard: View {
                     ProgressView()
                         .progressViewStyle(.circular)
                         .controlSize(.large)
+                        .accessibilityLabel("Loading latest status")
                 }
             }
 
             Divider()
-                .overlay(Color.white.opacity(0.3))
+                .background(Color.appSeparator.opacity(0.5))
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text("Controller URL")
-                    .font(.caption)
+                    .font(.appSubheadline)
                     .foregroundStyle(.secondary)
                 Text(baseURL)
-                    .font(.headline.monospaced())
+                    .font(.appMonospacedBody)
                     .foregroundStyle(.primary)
                     .accessibilityLabel("Configured controller URL: \(baseURL)")
 
                 if let lastChecked {
                     Text("Last updated \(dashboardRelativeFormatter.localizedString(for: lastChecked, relativeTo: .now))")
-                        .font(.footnote)
+                        .font(.appCaption)
                         .foregroundStyle(.secondary)
                 } else {
                     Text("Run a health check to capture the latest status.")
-                        .font(.footnote)
+                        .font(.appCaption)
                         .foregroundStyle(.secondary)
                 }
             }
         }
-        .padding(24)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            LinearGradient(colors: [state.statusColor.opacity(0.25), Color.appSecondaryBackground],
-                           startPoint: .topLeading,
-                           endPoint: .bottomTrailing)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .shadow(color: Color.black.opacity(0.1), radius: 12, x: 0, y: 8)
         .accessibilityElement(children: .combine)
     }
 }
 
 /// Compact card used to display individual metrics or highlights.
-private struct StatusHighlightCard: View {
+private struct StatusHighlightCard: CardView {
     let title: String
     let icon: String
     let tint: Color
     let value: String
     let detail: String?
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+    var cardConfiguration: CardConfiguration { .subtle }
+
+    var cardBody: some View {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
                 Image(systemName: icon)
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.system(size: 22, weight: .semibold))
                     .foregroundStyle(tint)
-                    .frame(width: 32, height: 32)
-                    .background(tint.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .frame(width: 44, height: 44)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(tint.opacity(0.12))
+                    )
+                    .accessibilityHidden(true)
 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(title)
-                        .font(.headline)
+                        .font(.appSubheadline)
                         .foregroundStyle(.primary)
                     if let detail {
                         Text(detail)
-                            .font(.subheadline)
+                            .font(.appCaption)
                             .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }
 
             Divider()
-                .background(Color.appSeparator)
+                .background(Color.appSeparator.opacity(0.5))
 
             Text(value)
-                .font(.body.monospaced())
+                .font(.appMonospacedBody)
                 .foregroundStyle(.primary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.appBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
         .accessibilityElement(children: .combine)
     }
 }
 
 /// The reusable card-style button that drives the quick actions section.
-private struct QuickActionButton: View {
+private struct QuickActionCardButton: View {
     let title: String
     let subtitle: String
     let icon: String
@@ -288,60 +305,60 @@ private struct QuickActionButton: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(alignment: .center, spacing: 16) {
-                Image(systemName: icon)
-                    .font(.system(size: 22, weight: .semibold))
-                    .frame(width: 44, height: 44)
-                    .foregroundStyle(.white)
-                    .background(LinearGradient(colors: [Color.accentColor, Color.accentColor.opacity(0.6)],
-                                               startPoint: .topLeading,
-                                               endPoint: .bottomTrailing))
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            CardContainer(configuration: .subtle) {
+                HStack(alignment: .center, spacing: 16) {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(LinearGradient(colors: [Color.appAccentPrimary, Color.appAccentPrimary.opacity(0.7)],
+                                             startPoint: .topLeading,
+                                             endPoint: .bottomTrailing))
+                        .overlay {
+                            Image(systemName: icon)
+                                .font(.system(size: 22, weight: .semibold))
+                                .foregroundStyle(Color.white)
+                        }
+                        .frame(width: 52, height: 52)
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .font(.headline)
-                        .foregroundStyle(.primary)
-                    Text(subtitle)
-                        .font(.subheadline)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(title)
+                            .font(.appButton)
+                            .foregroundStyle(.primary)
+                        Text(subtitle)
+                            .font(.appBody)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityHidden(true)
                 }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(.tertiary)
             }
-            .padding(18)
-            .background(Color.appBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 4)
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
+        .accessibilityLabel(Text(title))
+        .accessibilityHint(Text(subtitle))
     }
 }
 
 /// A lightweight card that surfaces contextual tips for maintaining connectivity.
-private struct HelpfulTipsCard: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+private struct HelpfulTipsCard: CardView {
+    var cardBody: some View {
+        VStack(alignment: .leading, spacing: 14) {
             Label("Keep things running smoothly", systemImage: "lightbulb")
-                .font(.headline)
+                .font(.appButton)
+                .foregroundStyle(Color.appAccentSecondary)
+                .labelStyle(.titleAndIcon)
 
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 10) {
                 TipRow(text: "Ensure the Raspberry Pi remains on the same Wi-Fi network as your phone.")
                 TipRow(text: "Reserve the Pi's IP address on your router to avoid unexpected changes.")
                 TipRow(text: "Use the Settings tab to update the base URL whenever your network changes.")
             }
         }
-        .padding(24)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.appBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 4)
         .accessibilityElement(children: .combine)
     }
 }
@@ -353,9 +370,10 @@ private struct TipRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(.green)
+                .foregroundStyle(Color.appSuccess)
+                .accessibilityHidden(true)
             Text(text)
-                .font(.subheadline)
+                .font(.appBody)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }

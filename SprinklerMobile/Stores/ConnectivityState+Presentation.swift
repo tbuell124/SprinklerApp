@@ -28,8 +28,10 @@ extension ConnectivityState {
     /// Accent color for icons/text.
     var statusColor: Color {
         switch self {
-        case .connected: return .green
-        case .offline:   return .red
+        case .connected:
+            return .appSuccess
+        case .offline:
+            return .appDanger
         }
     }
 }

@@ -24,68 +24,70 @@ struct RainCardView: View {
             if isLoading {
                 RainCardSkeleton()
             } else {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack(alignment: .center, spacing: 12) {
-                        Toggle(isOn: automationBinding) {
-                            Text("Automatic Rain Delay")
-                                .font(.headline)
+                CardContainer {
+                    VStack(alignment: .leading, spacing: 14) {
+                        HStack(alignment: .center, spacing: 12) {
+                            Toggle(isOn: automationBinding) {
+                                Text("Automatic Rain Delay")
+                                    .font(.appButton)
+                            }
+                            .toggleStyle(.switch)
+                            .disabled(!canToggleAutomation)
+
+                            if isUpdatingAutomation {
+                                ProgressView()
+                                    .progressViewStyle(.circular)
+                                    .accessibilityLabel("Updating automation settings")
+                            }
                         }
-                        .toggleStyle(.switch)
-                        .disabled(!canToggleAutomation)
 
-                        if isUpdatingAutomation {
-                            ProgressView()
-                                .progressViewStyle(.circular)
+                        Label {
+                            Text(rainStatusText)
+                                .font(.appBody)
+                        } icon: {
+                            Image(systemName: rain?.isActive == true ? "cloud.rain.fill" : "cloud")
+                        }
+                        .foregroundStyle(rainStatusColor)
+
+                        if let endsAt = rain?.endsAt, rain?.isActive == true {
+                            Text("Ends: \(endsAt.formatted(date: .abbreviated, time: .shortened))")
+                                .font(.appCaption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Divider()
+                            .background(Color.appSeparator.opacity(0.5))
+
+                        LabeledContent("Chance of Rain") {
+                            Text(chanceText)
+                                .font(.appBody)
+                                .foregroundStyle(chanceColor)
+                        }
+
+                        LabeledContent("Threshold") {
+                            Text(thresholdText)
+                                .font(.appBody)
+                        }
+
+                        if let zipText = zipText {
+                            LabeledContent("ZIP Code") {
+                                Text(zipText)
+                                    .font(.appBody)
+                            }
+                        }
+
+                        if !canToggleAutomation {
+                            Text("Configure ZIP code and threshold in Settings to enable automation.")
+                                .font(.appCaption)
+                                .foregroundStyle(.secondary)
+                        } else if !isAutomationEnabled {
+                            Text("Automation is disabled. The controller will not schedule rain delays automatically.")
+                                .font(.appCaption)
+                                .foregroundStyle(.secondary)
                         }
                     }
-
-                    Label {
-                        Text(rainStatusText)
-                            .font(.subheadline)
-                    } icon: {
-                        Image(systemName: rain?.isActive == true ? "cloud.rain.fill" : "cloud")
-                    }
-                    .foregroundStyle(rainStatusColor)
-
-                    if let endsAt = rain?.endsAt, rain?.isActive == true {
-                        Text("Ends: \(endsAt.formatted(date: .abbreviated, time: .shortened))")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Divider()
-
-                    LabeledContent("Chance of Rain") {
-                        Text(chanceText)
-                            .font(.subheadline)
-                            .foregroundStyle(chanceColor)
-                    }
-
-                    LabeledContent("Threshold") {
-                        Text(thresholdText)
-                            .font(.subheadline)
-                    }
-
-                    if let zipText = zipText {
-                        LabeledContent("ZIP Code") {
-                            Text(zipText)
-                                .font(.subheadline)
-                        }
-                    }
-
-                    if !canToggleAutomation {
-                        Text("Configure ZIP code and threshold in Settings to enable automation.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    } else if !isAutomationEnabled {
-                        Text("Automation is disabled. The controller will not schedule rain delays automatically.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+                    .accessibilityElement(children: .combine)
                 }
-                .padding()
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: 12).fill(Color(.secondarySystemBackground)))
             }
         }
     }
@@ -124,7 +126,7 @@ struct RainCardView: View {
               let threshold = rain?.thresholdPercent else {
             return .primary
         }
-        return chance >= threshold ? .orange : .green
+        return chance >= threshold ? .appWarning : .appSuccess
     }
 
     private var thresholdText: String {
@@ -146,6 +148,6 @@ struct RainCardView: View {
     }
 
     private var rainStatusColor: Color {
-        rain?.isActive == true ? .blue : .secondary
+        rain?.isActive == true ? .appInfo : .secondary
     }
 }
