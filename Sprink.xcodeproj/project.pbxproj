@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		6208745A2E7D04D80062F269 /* BonjourDiscoveryServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB8A2E7C7DCF001856FD /* BonjourDiscoveryServiceTests.swift */; };
+		6208745B2E7D04DD0062F269 /* ConnectivityStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB8B2E7C7DCF001856FD /* ConnectivityStoreTests.swift */; };
+		6208745C2E7D04E30062F269 /* HealthCheckerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB8C2E7C7DCF001856FD /* HealthCheckerTests.swift */; };
 		621360F02E7C8AE30094E4D2 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 621360EF2E7C8AE30094E4D2 /* LaunchScreen.storyboard */; };
 		621360F32E7C8C730094E4D2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 621360F22E7C8C730094E4D2 /* Assets.xcassets */; };
 		6251FB8F2E7C7DCF001856FD /* RainDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB662E7C7DCF001856FD /* RainDTO.swift */; };
@@ -39,16 +42,27 @@
 		6251FBAE2E7C7DCF001856FD /* ScheduleGroupDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB692E7C7DCF001856FD /* ScheduleGroupDTO.swift */; };
 		6251FBAF2E7C7DCF001856FD /* DiscoveryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB7C2E7C7DCF001856FD /* DiscoveryViewModel.swift */; };
 		6251FBB02E7C7DCF001856FD /* ScheduleDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB672E7C7DCF001856FD /* ScheduleDraft.swift */; };
-                6251FBB12E7C7DCF001856FD /* RainCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB822E7C7DCF001856FD /* RainCardView.swift */; };
-                6251FBB22E7C7DCF001856FD /* APIError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB612E7C7DCF001856FD /* APIError.swift */; };
-                6251FBB32E7C7DCF001856FD /* AuthenticationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FBB42E7C7DCF001856FD /* AuthenticationController.swift */; };
+		6251FBB12E7C7DCF001856FD /* RainCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB822E7C7DCF001856FD /* RainCardView.swift */; };
+		6251FBB22E7C7DCF001856FD /* APIError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB612E7C7DCF001856FD /* APIError.swift */; };
+		6251FBB32E7C7DCF001856FD /* AuthenticationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FBB42E7C7DCF001856FD /* AuthenticationController.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		620874552E7D04C10062F269 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 6251FB3A2E7C7D3F001856FD /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6251FB412E7C7D3F001856FD;
+			remoteInfo = Sprink;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
+		620874512E7D04C10062F269 /* SprinklerConnectivityTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SprinklerConnectivityTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		621360EF2E7C8AE30094E4D2 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		621360F22E7C8C730094E4D2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		6251FB422E7C7D3F001856FD /* Sprink.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sprink.app; sourceTree = BUILT_PRODUCTS_DIR; };
-               6251FB5E2E7C7DCF001856FD /* Package.swift */ = {isa = PBXFileReference; lastKnownFileType = text; path = Package.swift; sourceTree = "<group>"; };
+		6251FB5E2E7C7DCF001856FD /* Package.swift */ = {isa = PBXFileReference; lastKnownFileType = text; path = Package.swift; sourceTree = "<group>"; };
 		6251FB5F2E7C7DCF001856FD /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		6251FB602E7C7DCF001856FD /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		6251FB612E7C7DCF001856FD /* APIError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIError.swift; sourceTree = "<group>"; };
@@ -85,11 +99,26 @@
 		6251FB882E7C7DCF001856FD /* SprinklerMobileApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SprinklerMobileApp.swift; sourceTree = "<group>"; };
 		6251FB8A2E7C7DCF001856FD /* BonjourDiscoveryServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BonjourDiscoveryServiceTests.swift; sourceTree = "<group>"; };
 		6251FB8B2E7C7DCF001856FD /* ConnectivityStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectivityStoreTests.swift; sourceTree = "<group>"; };
-                6251FB8C2E7C7DCF001856FD /* HealthCheckerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthCheckerTests.swift; sourceTree = "<group>"; };
-                6251FBB42E7C7DCF001856FD /* AuthenticationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticationController.swift; sourceTree = "<group>"; };
+		6251FB8C2E7C7DCF001856FD /* HealthCheckerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthCheckerTests.swift; sourceTree = "<group>"; };
+		6251FBB42E7C7DCF001856FD /* AuthenticationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticationController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		620874522E7D04C10062F269 /* SprinklerConnectivityTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = SprinklerConnectivityTests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
 /* Begin PBXFrameworksBuildPhase section */
+		6208744E2E7D04C10062F269 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		6251FB3F2E7C7D3F001856FD /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -107,6 +136,7 @@
 				6251FB5F2E7C7DCF001856FD /* README.md */,
 				6251FB892E7C7DCF001856FD /* SprinklerMobile */,
 				6251FB8E2E7C7DCF001856FD /* Tests */,
+				620874522E7D04C10062F269 /* SprinklerConnectivityTests */,
 				6251FB432E7C7D3F001856FD /* Products */,
 			);
 			sourceTree = "<group>";
@@ -115,16 +145,17 @@
 			isa = PBXGroup;
 			children = (
 				6251FB422E7C7D3F001856FD /* Sprink.app */,
+				620874512E7D04C10062F269 /* SprinklerConnectivityTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-                6251FB6C2E7C7DCF001856FD /* Data */ = {
-                        isa = PBXGroup;
-                        children = (
-                                6251FBB42E7C7DCF001856FD /* AuthenticationController.swift */,
-                                6251FB602E7C7DCF001856FD /* APIClient.swift */,
-                                6251FB612E7C7DCF001856FD /* APIError.swift */,
+		6251FB6C2E7C7DCF001856FD /* Data */ = {
+			isa = PBXGroup;
+			children = (
+				6251FBB42E7C7DCF001856FD /* AuthenticationController.swift */,
+				6251FB602E7C7DCF001856FD /* APIClient.swift */,
+				6251FB612E7C7DCF001856FD /* APIError.swift */,
 				6251FB622E7C7DCF001856FD /* EmptyResponse.swift */,
 				6251FB632E7C7DCF001856FD /* GPIOCatalog.swift */,
 				6251FB642E7C7DCF001856FD /* HTTPClient.swift */,
@@ -247,6 +278,29 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		620874502E7D04C10062F269 /* SprinklerConnectivityTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 620874592E7D04C10062F269 /* Build configuration list for PBXNativeTarget "SprinklerConnectivityTests" */;
+			buildPhases = (
+				6208744D2E7D04C10062F269 /* Sources */,
+				6208744E2E7D04C10062F269 /* Frameworks */,
+				6208744F2E7D04C10062F269 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				620874562E7D04C10062F269 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				620874522E7D04C10062F269 /* SprinklerConnectivityTests */,
+			);
+			name = SprinklerConnectivityTests;
+			packageProductDependencies = (
+			);
+			productName = SprinklerConnectivityTests;
+			productReference = 620874512E7D04C10062F269 /* SprinklerConnectivityTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		6251FB412E7C7D3F001856FD /* Sprink */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 6251FB4D2E7C7D42001856FD /* Build configuration list for PBXNativeTarget "Sprink" */;
@@ -276,6 +330,10 @@
 				LastSwiftUpdateCheck = 1640;
 				LastUpgradeCheck = 1640;
 				TargetAttributes = {
+					620874502E7D04C10062F269 = {
+						CreatedOnToolsVersion = 16.4;
+						TestTargetID = 6251FB412E7C7D3F001856FD;
+					};
 					6251FB412E7C7D3F001856FD = {
 						CreatedOnToolsVersion = 16.4;
 					};
@@ -296,11 +354,19 @@
 			projectRoot = "";
 			targets = (
 				6251FB412E7C7D3F001856FD /* Sprink */,
+				620874502E7D04C10062F269 /* SprinklerConnectivityTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		6208744F2E7D04C10062F269 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		6251FB402E7C7D3F001856FD /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -313,6 +379,16 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		6208744D2E7D04C10062F269 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6208745A2E7D04D80062F269 /* BonjourDiscoveryServiceTests.swift in Sources */,
+				6208745C2E7D04E30062F269 /* HealthCheckerTests.swift in Sources */,
+				6208745B2E7D04DD0062F269 /* ConnectivityStoreTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		6251FB3E2E7C7D3F001856FD /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -347,15 +423,59 @@
 				6251FBAE2E7C7DCF001856FD /* ScheduleGroupDTO.swift in Sources */,
 				6251FBAF2E7C7DCF001856FD /* DiscoveryViewModel.swift in Sources */,
 				6251FBB02E7C7DCF001856FD /* ScheduleDraft.swift in Sources */,
-                            6251FBB12E7C7DCF001856FD /* RainCardView.swift in Sources */,
-                            6251FBB22E7C7DCF001856FD /* APIError.swift in Sources */,
-                            6251FBB32E7C7DCF001856FD /* AuthenticationController.swift in Sources */,
+				6251FBB12E7C7DCF001856FD /* RainCardView.swift in Sources */,
+				6251FBB22E7C7DCF001856FD /* APIError.swift in Sources */,
+				6251FBB32E7C7DCF001856FD /* AuthenticationController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		620874562E7D04C10062F269 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6251FB412E7C7D3F001856FD /* Sprink */;
+			targetProxy = 620874552E7D04C10062F269 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		620874572E7D04C10062F269 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3942HSRK87;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = io.sprink.sprink.SprinklerConnectivityTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Sprink.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Sprink";
+			};
+			name = Debug;
+		};
+		620874582E7D04C10062F269 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3942HSRK87;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = io.sprink.sprink.SprinklerConnectivityTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Sprink.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Sprink";
+			};
+			name = Release;
+		};
 		6251FB4B2E7C7D42001856FD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -540,6 +660,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		620874592E7D04C10062F269 /* Build configuration list for PBXNativeTarget "SprinklerConnectivityTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				620874572E7D04C10062F269 /* Debug */,
+				620874582E7D04C10062F269 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		6251FB3D2E7C7D3F001856FD /* Build configuration list for PBXProject "Sprink" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
