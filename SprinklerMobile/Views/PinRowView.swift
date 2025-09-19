@@ -12,7 +12,7 @@ struct PinRowView: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text(pin.displayName)
-                    .font(.headline)
+                    .font(.appButton)
                 Spacer()
                 Toggle("", isOn: Binding(
                     get: { pin.isActive ?? false },
@@ -23,12 +23,14 @@ struct PinRowView: View {
                     }
                 ))
                 .labelsHidden()
+                .accessibilityLabel(Text("Toggle \(pin.displayName)"))
+                .accessibilityValue(Text((pin.isActive ?? false) ? "On" : "Off"))
                 .disabled(!canToggle)
             }
 
             if !canToggle {
                 Text("Enable in Settings to control this zone.")
-                    .font(.caption)
+                    .font(.appCaption)
                     .foregroundStyle(.secondary)
             }
         }
