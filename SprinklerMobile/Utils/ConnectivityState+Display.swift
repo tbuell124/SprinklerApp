@@ -13,7 +13,7 @@ extension ConnectivityState {
     }
 
     /// A short message explaining the status in more detail for the hero card and highlight section.
-    var statusMessage: String {
+    var statusMessage: String? {
         switch self {
         case .connected:
             return "The controller is reachable on your network."
@@ -26,9 +26,9 @@ extension ConnectivityState {
     var statusIcon: String {
         switch self {
         case .connected:
-            return "checkmark.seal"
+            return "checkmark.circle.fill"
         case .offline:
-            return "exclamationmark.triangle"
+            return "xmark.circle.fill"
         }
     }
 
@@ -36,9 +36,9 @@ extension ConnectivityState {
     var statusColor: Color {
         switch self {
         case .connected:
-            return .green
+            return .appSuccess
         case .offline:
-            return .orange
+            return .appDanger
         }
     }
 }
