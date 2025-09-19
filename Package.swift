@@ -29,7 +29,8 @@ let package = Package(
                 "Utils",
                 "Views",
                 "SprinklerMobileApp.swift",
-                "Stores/SprinklerStore.swift"
+                "Stores/SprinklerStore.swift",
+                "Stores/ConnectivityState+Presentation.swift"
             ],
             sources: [
                 "Models/DiscoveredDevice.swift",

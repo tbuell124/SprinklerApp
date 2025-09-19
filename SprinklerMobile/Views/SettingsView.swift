@@ -145,10 +145,12 @@ private struct SettingsHeroCard: View {
                     Text(state.statusTitle)
                         .font(.headline)
                         .foregroundStyle(.primary)
-                    Text(state.statusMessage)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    if let message = state.statusMessage {
+                        Text(message)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
 
                 Spacer()
