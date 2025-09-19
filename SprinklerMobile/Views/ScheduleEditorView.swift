@@ -62,7 +62,7 @@ struct ScheduleEditorView: View {
                     }
                 }
             }
-            .onChange(of: timeSelection) { newValue in
+            .onChange(of: timeSelection, initial: false) { _, newValue in
                 draft.startTime = ScheduleEditorView.timeString(from: newValue)
             }
         }
