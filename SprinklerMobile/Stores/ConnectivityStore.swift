@@ -24,6 +24,8 @@ final class ConnectivityStore: ObservableObject {
     @Published var state: ConnectivityState = .offline(errorDescription: nil)
     /// Indicates when a connectivity check is currently running to avoid duplicate requests.
     @Published var isChecking: Bool = false
+    /// Tracks when a connectivity check last completed so the UI can surface recency information.
+    @Published var lastCheckedDate: Date?
 
     private let checker: ConnectivityChecking
     private let defaults: UserDefaults
@@ -56,6 +58,7 @@ final class ConnectivityStore: ObservableObject {
         isChecking = true
         defer { isChecking = false }
         let result = await checker.check(baseURL: url)
+        lastCheckedDate = Date()
         self.state = result
     }
 
