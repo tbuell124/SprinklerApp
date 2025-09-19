@@ -48,7 +48,7 @@
 		621360EF2E7C8AE30094E4D2 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		621360F22E7C8C730094E4D2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		6251FB422E7C7D3F001856FD /* Sprink.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sprink.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		6251FB5E2E7C7DCF001856FD /* Package.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Package.swift; sourceTree = "<group>"; };
+               6251FB5E2E7C7DCF001856FD /* Package.swift */ = {isa = PBXFileReference; lastKnownFileType = text; path = Package.swift; sourceTree = "<group>"; };
 		6251FB5F2E7C7DCF001856FD /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		6251FB602E7C7DCF001856FD /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		6251FB612E7C7DCF001856FD /* APIError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIError.swift; sourceTree = "<group>"; };
