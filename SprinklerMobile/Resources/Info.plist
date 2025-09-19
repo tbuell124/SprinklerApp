@@ -2,19 +2,32 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleExecutable</key>
-    <string>$(EXECUTABLE_NAME)</string>
-    <key>NSAppTransportSecurity</key>
-    <dict>
-        <key>NSAllowsArbitraryLoadsInLocalNetworks</key>
-        <true/>
-    </dict>
-    <key>NSBonjourServices</key>
-    <array>
-        <string>_sprinkler._tcp.</string>
-        <string>_http._tcp.</string>
-    </array>
-    <key>NSLocalNetworkUsageDescription</key>
-    <string>The app discovers the sprinkler controller on your local network.</string>
+  <key>CFBundleIdentifier</key>
+  <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+  <key>CFBundleName</key>
+  <string>$(PRODUCT_NAME)</string>
+  <key>CFBundleExecutable</key>
+  <string>$(EXECUTABLE_NAME)</string>
+  <key>CFBundleInfoDictionaryVersion</key>
+  <string>6.0</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleShortVersionString</key>
+  <string>1.0</string>
+  <key>CFBundleVersion</key>
+  <string>1</string>
+
+  <key>NSBonjourServices</key>
+  <array>
+    <string>_sprinkler._tcp.</string>
+    <string>_http._tcp.</string>
+  </array>
+  <key>NSLocalNetworkUsageDescription</key>
+  <string>The app discovers the sprinkler controller on your local network.</string>
+  <key>NSAppTransportSecurity</key>
+  <dict>
+    <key>NSAllowsArbitraryLoadsInLocalNetworks</key>
+    <true/>
+  </dict>
 </dict>
 </plist>
