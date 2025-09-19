@@ -1,6 +1,10 @@
 #if canImport(XCTest)
 import XCTest
+#if canImport(Sprink_)
+@testable import Sprink_
+#else
 @testable import SprinklerConnectivity
+#endif
 
 final class ConnectivityStoreTests: XCTestCase {
     func testBaseURLPersistsToUserDefaults() async {
