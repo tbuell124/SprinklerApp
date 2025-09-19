@@ -50,6 +50,8 @@ struct HealthChecker: ConnectivityChecking {
                     lastError = "Unrecognized status payload"
                     continue
                 }
+            } catch let urlError as URLError {
+                lastError = Self.describe(urlError)
             } catch {
                 lastError = error.localizedDescription
             }
@@ -128,5 +130,21 @@ struct HealthChecker: ConnectivityChecking {
         }
 
         return nil
+    }
+
+    /// Generates a human readable error string for common URL loading failures.
+    private static func describe(_ error: URLError) -> String {
+        switch error.code {
+        case .timedOut:
+            return "Connection timed out"
+        case .cannotFindHost, .dnsLookupFailed:
+            return "Host could not be resolved"
+        case .notConnectedToInternet:
+            return "No internet connection"
+        case .cannotConnectToHost:
+            return "Unable to open a connection to the controller"
+        default:
+            return error.localizedDescription
+        }
     }
 }
