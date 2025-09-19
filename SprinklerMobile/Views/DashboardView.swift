@@ -47,6 +47,7 @@ struct DashboardView: View {
                     .padding(.horizontal, 20)
                     .padding(.vertical, 24)
                 }
+                .scrollDismissesKeyboard(.interactively)
                 .refreshable { await refreshAll() }
             }
             .navigationTitle("Sprinkler")
@@ -390,6 +391,7 @@ private struct PinListSection: View {
     @Environment(\.editMode) private var editMode
     @State private var isExpanded = true
     @State private var durationInputs: [Int: String] = [:]
+    @FocusState private var focusedDurationField: Int?
 
     let isRefreshing: Bool
 
@@ -415,6 +417,7 @@ private struct PinListSection: View {
                         ForEach(store.activePins) { pin in
                             PinControlRow(pin: pin,
                                           durationBinding: binding(for: pin),
+                                          focus: $focusedDurationField,
                                           onToggle: togglePin(_:desiredState:),
                                           onRun: runPin(_:minutes:))
                                 .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
@@ -428,6 +431,8 @@ private struct PinListSection: View {
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
                     .scrollDisabled(true)
+                    .scrollDismissesKeyboard(.interactively)
+                    .toolbar { keyboardToolbar }
                 }
             }
         }
@@ -506,6 +511,15 @@ private struct PinListSection: View {
     private func runPin(_ pin: PinDTO, minutes: Int) {
         store.runPin(pin, forMinutes: minutes)
         durationInputs[pin.pin] = ""
+        focusedDurationField = nil
+    }
+
+    /// Toolbar that provides a clear dismissal action for the numeric keypad.
+    private var keyboardToolbar: some ToolbarContent {
+        ToolbarItemGroup(placement: .keyboard) {
+            Spacer()
+            Button("Done") { focusedDurationField = nil }
+        }
     }
 }
 
@@ -513,6 +527,7 @@ private struct PinListSection: View {
 private struct PinControlRow: View {
     let pin: PinDTO
     @Binding var durationBinding: String
+    let focus: FocusState<Int?>.Binding
     let onToggle: (PinDTO, Bool) -> Void
     let onRun: (PinDTO, Int) -> Void
 
@@ -562,12 +577,15 @@ private struct PinControlRow: View {
                     .textFieldStyle(.roundedBorder)
                     .frame(minWidth: 80)
                     .disabled(!isEnabled || isActive)
+                    .focused(focus, equals: pin.pin)
+                    .submitLabel(.done)
                     .accessibilityLabel("Run duration for \(pin.displayName)")
                     .accessibilityHint("Enter the number of minutes to run this zone.")
 
                 Button("Start") {
                     if let minutes = minutesValue, minutes > 0 {
                         onRun(pin, minutes)
+                        focus.wrappedValue = nil
                     }
                 }
                 .buttonStyle(.borderedProminent)
