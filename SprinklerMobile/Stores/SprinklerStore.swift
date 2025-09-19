@@ -502,6 +502,35 @@ final class SprinklerStore: ObservableObject {
         }
     }
 
+    func duplicateSchedule(_ schedule: ScheduleDTO) {
+        Task {
+            do {
+                let baseName = normalizedName(from: schedule.name) ?? "Schedule"
+                let duplicateName = baseName.isEmpty ? "Schedule Copy" : "\(baseName) Copy"
+                let sequence = schedule.resolvedSequence(defaultPins: pins)
+                let fallbackDuration = max(sequence.first?.durationMinutes ?? schedule.durationMinutes ?? 0, 0)
+                let payload = ScheduleWritePayload(name: duplicateName,
+                                                   durationMinutes: fallbackDuration,
+                                                   startTime: schedule.startTime ?? "06:00",
+                                                   days: (schedule.days?.isEmpty ?? true) ? nil : schedule.days,
+                                                   isEnabled: schedule.isEnabled ?? true,
+                                                   sequence: sequence.map { item in
+                                                       ScheduleWritePayload.Step(pin: item.pin,
+                                                                                  durationMinutes: max(item.durationMinutes, 0))
+                                                   })
+                try await client.createSchedule(payload)
+                await refresh()
+                await MainActor.run {
+                    showToast(message: "Schedule duplicated", style: .success)
+                }
+            } catch {
+                await MainActor.run {
+                    showToast(message: "Failed to duplicate schedule", style: .error)
+                }
+            }
+        }
+    }
+
     func reorderSchedules(from offsets: IndexSet, to destination: Int) {
         var reordered = schedules
         reordered.move(fromOffsets: offsets, toOffset: destination)
@@ -775,14 +804,14 @@ final class SprinklerStore: ObservableObject {
         return defaultMessage
     }
 
-    private func scheduleTimeline(relativeTo date: Date, calendar: Calendar = Calendar.current) -> (current: ScheduleRun?, next: ScheduleRun?) {
+    func scheduleTimeline(relativeTo date: Date, calendar: Calendar = Calendar.current) -> (current: ScheduleRun?, next: ScheduleRun?) {
         let occurrences = scheduleOccurrences(relativeTo: date, calendar: calendar)
         let current = occurrences.first { $0.contains(date) }
         let upcoming = occurrences.first { $0.startDate > date }
         return (current, upcoming)
     }
 
-    private func scheduleOccurrences(relativeTo date: Date, calendar: Calendar = Calendar.current) -> [ScheduleRun] {
+    func scheduleOccurrences(relativeTo date: Date, calendar: Calendar = Calendar.current) -> [ScheduleRun] {
         guard !schedules.isEmpty else { return [] }
 
         let startOfDay = calendar.startOfDay(for: date)
@@ -791,7 +820,10 @@ final class SprinklerStore: ObservableObject {
         for schedule in schedules where schedule.isEnabled ?? true {
             guard let startTime = schedule.startTime,
                   let timeComponents = parseTimeComponents(from: startTime) else { continue }
-            let durationMinutes = max(schedule.durationMinutes ?? 0, 0)
+            let sequence = schedule.resolvedSequence(defaultPins: pins)
+            let durationMinutes = sequence.reduce(0) { partialResult, item in
+                partialResult + max(item.durationMinutes, 0)
+            }
             let weekdays = resolvedWeekdays(for: schedule, calendar: calendar)
 
             for offset in -1...7 {
@@ -1280,5 +1312,13 @@ final class StatusCache {
         } catch {
             return nil
         }
+    }
+}
+
+extension SprinklerStore {
+    /// Test-only helper that seeds deterministic pins and schedules without hitting the network.
+    func configureForTesting(pins: [PinDTO], schedules: [ScheduleDTO]) {
+        self.pins = pins
+        self.schedules = schedules
     }
 }

@@ -36,12 +36,20 @@ struct SchedulesView: View {
                     } else {
                         ForEach(store.schedules) { schedule in
                             Button {
-                                editingDraft = ScheduleDraft(schedule: schedule)
+                                editingDraft = ScheduleDraft(schedule: schedule, pins: store.pins)
                                 isPresentingEditor = true
                             } label: {
                                 ScheduleRowView(schedule: schedule)
                             }
                             .buttonStyle(.plain)
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button {
+                                    store.duplicateSchedule(schedule)
+                                } label: {
+                                    Label("Duplicate", systemImage: "plus.square.on.square")
+                                }
+                                .tint(.accentColor)
+                            }
                         }
                         .onDelete { indexSet in
                             for index in indexSet {
@@ -106,7 +114,7 @@ struct SchedulesView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
-                        editingDraft = ScheduleDraft()
+                        editingDraft = ScheduleDraft(pins: store.pins)
                         isPresentingEditor = true
                     } label: {
                         Image(systemName: "plus")
