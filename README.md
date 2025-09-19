@@ -1,144 +1,158 @@
-SprinklerApp Setup Guide
+# Sprinkler Controller Deployment Guide
 
-Control your irrigation system using a Raspberry Pi and companion iOS app.
-The Pi hosts a FastAPI-based backend that exposes endpoints for GPIO-controlled valves, moisture lockouts, and scheduling, while the iOS app provides a clean interface for management.
+This guide captures the exact configuration that is now running on the Raspberry Pi controller.
+It documents the wiring plan for the 16 active relays, the required `.env` configuration, and the
+steps to validate the service before moving on to UI polish.
 
-1. Overview
+The Raspberry Pi runs the FastAPI backend from this repo and is paired with the Sprink! iOS app.
+All commands below assume you are connected to the Pi via SSH as `tybuell` and that the project
+lives in `/srv/sprinkler-controller`.
 
-This guide covers:
+---
 
-Installing required system packages on a fresh Raspberry Pi
+## 1. Hardware wiring reference
 
-Setting up the sprinkler backend service
+The relay board is already wired exactly as shown in the photo. Each channel maps to a specific BCM
+GPIO pin. Only these 16 pins are allowed to toggle valves; everything else is blocked in software to
+prevent accidental changes to power, ground, I²C, SPI, or UART.
 
-Running it in a Python virtual environment
+| Relay position | BCM pin | Physical pin | Notes |
+| -------------- | ------- | ------------ | ----- |
+| 1 (leftmost)   | 12      | 32           | PWM0 capable |
+| 2              | 16      | 36           | Safe GPIO |
+| 3              | 20      | 38           | PCM DIN |
+| 4              | 21      | 40           | PCM DOUT |
+| 5              | 26      | 37           | Safe GPIO |
+| 6              | 19      | 35           | PCM FS |
+| 7              | 13      | 33           | PWM1 capable |
+| 8              | 6       | 31           | Safe GPIO |
+| 9              | 5       | 29           | Safe GPIO |
+| 10             | 11      | 23           | SPI SCLK (dedicated to relay now) |
+| 11             | 9       | 21           | SPI MISO (dedicated) |
+| 12             | 10      | 19           | SPI MOSI (dedicated) |
+| 13             | 22      | 15           | Safe GPIO |
+| 14             | 27      | 13           | Safe GPIO |
+| 15             | 17      | 11           | Safe GPIO |
+| 16 (rightmost) | 4       | 7            | Safe GPIO |
 
-Installing and configuring a persistent systemd service so it starts on boot
+> ✅ **Do not** wire additional loads to other GPIO pins unless you also update the allow list below.
 
-Configuring networking for easy access
+---
 
-Integrating with the iOS app
+## 2. Raspberry Pi preparation
 
-Once complete, your Pi will boot up, run the sprinkler controller automatically, and be accessible by your iOS app with no further manual intervention.
-
-2. Prerequisites
-
-Raspberry Pi OS (32- or 64-bit) installed and updated
-
-SSH enabled (to manage from your computer)
-
-A relay board or GPIO-connected valves wired to the Pi
-
-Pi and iPhone connected to the same network
-
-Your Pi’s IP address (find it via hostname -I or your router)
-
-3. Raspberry Pi Setup
-3.1 Update and reboot
-
-Always start by updating the system:
-
+```bash
 sudo apt update
 sudo apt full-upgrade -y
 sudo reboot
+```
 
+Reconnect, then install the runtime packages. Pigpio handles low-level GPIO access; FastAPI and the
+other Python dependencies run inside the project virtual environment.
 
-Reconnect over SSH once the Pi reboots.
-
-3.2 Install required packages
-
-Install all necessary software for GPIO control, Python, and system services:
-
-sudo apt install -y git python3 python3-venv python3-pip python3-rpi.gpio pigpio
-
-
-Enable and start the pigpio daemon, which manages GPIO pins at the system level:
-
+```bash
+sudo apt install -y git python3 python3-venv python3-pip python3-rpi.gpio pigpio jq
 sudo systemctl enable --now pigpiod
+```
 
-3.3 Create the controller directory
+`jq` is optional but makes the JSON responses easier to read when verifying the API.
 
-We’ll store all code in /srv/sprinkler-controller for clarity:
+---
 
+## 3. Project layout on the Pi
+
+All backend code lives at `/srv/sprinkler-controller`:
+
+```bash
 sudo mkdir -p /srv/sprinkler-controller
 sudo chown $USER:$USER /srv/sprinkler-controller
 cd /srv/sprinkler-controller
+```
 
-3.4 Download the backend code
+Clone or copy the backend code into this directory. If you update the repo on your Mac first, use
+SCP to transfer it:
 
-Clone your backend controller code here:
+```bash
+scp -r ./sprinkler-backend tybuell@sprinkler:/srv/sprinkler-controller
+```
 
-git clone https://github.com/your-org/sprinkler-controller.git .
+Create and activate the virtual environment:
 
-
-If you’ve received the code as a .zip, copy its contents into this folder instead.
-
-3.5 Create a virtual environment
-
-Virtual environments keep your Python dependencies clean and isolated:
-
+```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip wheel
-
-3.6 Install dependencies
-
-If a requirements.txt is provided:
-
 pip install -r requirements.txt
+```
 
+If no `requirements.txt` is present, manually install the known dependencies:
 
-If not, manually install:
+```bash
+pip install fastapi uvicorn[standard] python-dotenv pigpio RPi.GPIO
+```
 
-pip install fastapi uvicorn[standard] python-dotenv RPi.GPIO pigpio
+---
 
-3.7 Create a configuration file (.env)
+## 4. Environment configuration (`.env`)
 
-The .env file defines runtime settings like GPIO pins and ports:
+The `.env` file locks the backend to only control the safe 16-pin set, keeps UART/I²C reserved pins
+disabled, and defines the HTTP port.
 
-nano .env
-
-
-Example contents:
-
+```
 SPRINKLER_API_PORT=5000
-SPRINKLER_GPIO_PINS=4,17,27,22,5,6,13,19
-RAIN_LOCK_DEFAULT_HOURS=24
+SPRINKLER_GPIO_ALLOW=12,16,20,21,26,19,13,6,5,11,9,10,22,27,17,4
+SPRINKLER_GPIO_DENY=2,3,14,15
+```
 
+* Keep the pins listed exactly as shown unless you rewire the relay board.
+* Never overwrite `.env` when deploying updates; edit it in place if wiring changes later.
 
-Tip: Replace GPIO pins with the exact pins connected to your relay.
+---
 
-3.8 Test the application manually
+## 5. Manual verification
 
-Run the backend to ensure it works before automating it:
+Before enabling the systemd service, sanity-check the API while the virtual environment is active.
 
-source /srv/sprinkler-controller/.venv/bin/activate
+```bash
 uvicorn sprinkler.app:app --host 0.0.0.0 --port 5000
+```
 
+In another SSH session:
 
-Open another terminal (or Safari on your phone) and test:
+```bash
+curl -s http://127.0.0.1:5000/api/status | jq
+```
 
-http://<PI_IP>:5000/api/status
+Expected output (order may vary):
 
+```json
+{
+  "ok": true,
+  "pins": [4,5,6,9,10,11,12,13,16,17,19,20,21,22,26,27],
+  "allow_mode": "list",
+  "deny": [2,3,14,15],
+  "backend": "pigpio",
+  "pigpio_connected": true
+}
+```
 
-You should see JSON output like:
+Test a few relays to confirm they toggle as expected (replace `{pin}` with any allowed pin):
 
-{"ok":true,"pins":[4,17,27,22,5,6,13,19],"backend":"pigpio"}
+```bash
+curl -s -X POST http://127.0.0.1:5000/api/pin/{pin}/on | jq
+curl -s -X POST http://127.0.0.1:5000/api/pin/{pin}/off | jq
+```
 
+Each command should activate the matching relay LED and then turn it back off.
 
-Stop the process with CTRL+C.
+---
 
-3.9 Create a systemd service
+## 6. Systemd service
 
-This will automatically start the sprinkler API on boot and keep it running.
+Create `/etc/systemd/system/sprinkler.service` so the controller starts automatically on boot:
 
-Create and edit the service file:
-
-sudo nano /etc/systemd/system/sprinkler.service
-
-
-Paste the following:
-
+```bash
+sudo tee /etc/systemd/system/sprinkler.service >/dev/null <<'UNIT'
 [Unit]
 Description=Sprinkler Controller API
 After=network-online.target pigpiod.service
@@ -147,305 +161,108 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=tybuell
-Group=tybuell
 WorkingDirectory=/srv/sprinkler-controller
-EnvironmentFile=-/srv/sprinkler-controller/.env
-ExecStart=/srv/sprinkler-controller/.venv/bin/uvicorn sprinkler.app:app --host 0.0.0.0 --port 5000
+EnvironmentFile=/srv/sprinkler-controller/.env
+ExecStart=/srv/sprinkler-controller/.venv/bin/uvicorn sprinkler.app:app --host 0.0.0.0 --port ${SPRINKLER_API_PORT}
 Restart=on-failure
-
-[Install]
-WantedBy=multi-user.target
-
-
-Note: Replace tybuell with your actual username (run whoami to confirm).
-
-3.10 Enable and start the service
-
-Reload systemd, enable the service to run at boot, and start it now:
-
-sudo systemctl daemon-reload
-sudo systemctl enable --now pigpiod
-sudo systemctl enable --now sprinkler.service
-
-
-Check its status:
-
-sudo systemctl status sprinkler.service --no-pager
-
-
-Expected output:
-
-Active: active (running)
-Uvicorn running on http://0.0.0.0:5000
-
-3.11 Verify the service
-
-From the Pi:
-
-curl http://127.0.0.1:5000/api/status
-
-
-From your Mac or iPhone:
-
-http://192.168.1.24:5000/api/status
-
-
-You should get the same JSON as before.
-If not, view logs:
-
-journalctl -u sprinkler.service -n 50 --no-pager
-
-4. Networking best practices
-
-Reserve a static DHCP lease on your router for the Pi.
-This ensures the Pi’s IP never changes.
-
-Firewall (optional but recommended):
-Allow only port 5000:
-
-sudo apt install ufw
-sudo ufw allow 5000/tcp
-sudo ufw enable
-sudo ufw status
-
-
-Bonjour/mDNS (optional):
-Install avahi-daemon to access your Pi via http://sprinkler.local:5000
-
-sudo apt install avahi-daemon
-
-5. iOS app setup
-
-Open the iOS app and navigate to Settings → Target IP.
-
-Enter:
-
-http://<PI_IP>:5000
-
-
-Example:
-
-http://192.168.1.24:5000
-
-
-Tap Save & Test.
-
-If successful, you’ll see live data; if not, check:
-
-Pi service logs (journalctl)
-
-Firewall rules
-
-Correct port and protocol (http:// not https://)
-
-6. Maintenance commands
-Update the backend code
-cd /srv/sprinkler-controller
-git pull
-source .venv/bin/activate
-pip install -r requirements.txt
-sudo systemctl restart sprinkler.service
-
-Update Raspberry Pi OS
-sudo apt update && sudo apt full-upgrade -y
-sudo reboot
-
-Check logs
-journalctl -u sprinkler.service -f
-
-7. Final checklist
-
- Pi boots and automatically runs the sprinkler API
-
- Port 5000 accessible from other devices on your network
-
- iOS app connected and working
-
- .env correctly configured with your zone pins
-
- Backups taken of /srv/sprinkler-controller and .env
-
-Once all are checked, you now have a “set it and forget it” sprinkler controller!
-
-8. Troubleshooting
-
-### Build Errors
-
-If you see “Cannot find type ConnectivityStore / DiscoveryViewModel / DiscoveredDevice”, ensure the files exist at:
-
-- `SprinklerMobile/Store/ConnectivityStore.swift`
-- `SprinklerMobile/Services/BonjourDiscoveryService.swift`
-- `SprinklerMobile/ViewModels/DiscoveryViewModel.swift`
-
-and that each file’s Target Membership includes **Sprink!**. After making changes, run **Product → Clean Build Folder** (Shift+Cmd+K) and then build again.
-
-Issue	Likely Cause	Solution
-curl works on Pi but not iPhone	Firewall or network isolation	Check UFW, router settings
-ModuleNotFoundError: sprinkler	Missing or misplaced sprinkler/app.py	Ensure correct folder structure
-Service shows status=217/USER	Wrong user in unit file	Edit User= to match your Pi username
-iOS app says “Failed to decode…”	Wrong endpoint or JSON format	Verify URL and JSON with Safari
-Nothing running on port 5000	Service didn’t start	journalctl -u sprinkler.service for logs
-
-With these steps complete, your Raspberry Pi sprinkler controller will run continuously and require minimal upkeep.
-
-Raspberry Pi Setup for /api/status (Phase 1)
--------------------------------------------
-To let the iOS app verify connectivity, the Pi must serve an HTTP endpoint at:
-
-```
-http://<hostname-or-ip>:8000/api/status
-```
-
-that returns an HTTP 200 and a JSON object (any fields) when healthy.
-
-Minimal Python server (FastAPI)
-```
-# On the Pi
-sudo apt update && sudo apt install -y python3-venv git
-mkdir -p /srv/sprinkler && cd /srv/sprinkler
-python3 -m venv .venv
-source .venv/bin/activate
-pip install fastapi uvicorn
-
-# Create app.py
-cat > app.py << 'PY'
-from fastapi import FastAPI
-from fastapi.responses import JSONResponse
-app = FastAPI()
-
-@app.get("/api/status")
-def status():
-    return JSONResponse({"ok": True, "service": "sprinkler", "version": "v1"})
-PY
-
-# Run (foreground) to test:
-uvicorn app:app --host 0.0.0.0 --port 8000
-```
-
-Test from a Mac (replace host as needed)
-```
-curl -i http://sprinkler.local:8000/api/status
-# Expect: HTTP/1.1 200 OK and a JSON object like {"ok": true, ...}
-```
-
-Optional: systemd service for auto-start
-```
-# Create a systemd unit
-sudo tee /etc/systemd/system/sprinkler.service >/dev/null <<'UNIT'
-[Unit]
-Description=Sprinkler API (Phase 1 status endpoint)
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=simple
-User=pi
-WorkingDirectory=/srv/sprinkler
-ExecStart=/srv/sprinkler/.venv/bin/uvicorn app:app --host 0.0.0.0 --port 8000
-Restart=on-failure
+StandardOutput=append:/var/log/sprinkler.log
+StandardError=append:/var/log/sprinkler.log
 
 [Install]
 WantedBy=multi-user.target
 UNIT
+```
 
-# Enable & start
+Enable and start the service:
+
+```bash
 sudo systemctl daemon-reload
-sudo systemctl enable --now sprinkler.service
+sudo systemctl enable sprinkler.service
+sudo systemctl restart sprinkler.service
 sudo systemctl status sprinkler.service --no-pager
 ```
 
-Notes
-- No CORS config needed for native iOS apps.
-- If you prefer Flask, return any 200 JSON object at /api/status.
-- Keep port 8000 unless you also change the app’s default Base URL.
+Tail logs when troubleshooting:
 
-## Bonjour/mDNS Advertising (Phase 2)
-
-To enable auto-discovery, the Raspberry Pi should advertise a Bonjour service. We recommend a custom service _sprinkler._tcp. on the same port used by your API (e.g., 8000).
-
-### Install Avahi (mDNS) on Raspberry Pi
+```bash
+sudo journalctl -u sprinkler.service -f
 ```
-sudo apt update
+
+Whenever the backend code changes:
+
+1. Deploy updated files (SCP or git pull).
+2. **Do not** overwrite `.env`.
+3. Restart the service with `sudo systemctl restart sprinkler.service`.
+4. Re-run the `/api/status` check.
+
+---
+
+## 7. iOS app pairing checklist
+
+1. Open the Sprink! app on your iPhone.
+2. In Settings → Target Address, set `http://sprinkler.local:5000` (or use the Pi's IP).
+3. Tap **Run Health Check** — it should report `Connected`.
+4. On the main controls screen you should now see exactly 16 zones, matching the wiring table.
+
+If the health check fails, verify:
+
+- The Pi responds to `ping sprinkler.local` from your phone's network.
+- `/api/status` returns `pigpio_connected: true` on the Pi.
+- The `.env` allow list has no typos.
+
+---
+
+## 8. Optional: Bonjour/mDNS advertisement
+
+To let the iOS app discover the controller automatically, enable Avahi:
+
+```bash
 sudo apt install -y avahi-daemon avahi-utils
-sudo systemctl enable --now avahi-daemon
-```
-
-### Create a service definition for _sprinkler._tcp
-```
-# Create service file
 sudo tee /etc/avahi/services/sprinkler.service >/dev/null <<'XML'
-<?xml version="1.0" standalone='no'?><!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+<?xml version="1.0" standalone='no'?>
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
 <service-group>
-  <name replace-wildcards="yes">%h</name>
+  <name replace-wildcards="yes">%h Sprinkler</name>
   <service>
     <type>_sprinkler._tcp</type>
-    <port>8000</port>
+    <port>5000</port>
     <txt-record>path=/api/status</txt-record>
   </service>
 </service-group>
 XML
-
-# Restart Avahi
 sudo systemctl restart avahi-daemon
 ```
 
-If you prefer to reuse HTTP, you can instead advertise _http._tcp with a service name containing “sprinkler”, but _sprinkler._tcp avoids noise from unrelated devices.
-
-### Verify advertisement
-```
-# From a Mac on the same LAN:
-dns-sd -B _sprinkler._tcp
-# You should see a service instance listed; then resolve it:
-dns-sd -L <ServiceName> _sprinkler._tcp local
-```
-
-### Notes
-
-- Keep the port in the service file in sync with your API server (Phase 1 default: 8000).
-- The iOS app filters for services whose name or host contains “sprinkler”.
-
-## Project Structure Update
-The app now supports automatic discovery and connectivity checks.
-
-**New folders:**
-- `Models/` — Core data models like `DiscoveredDevice`.
-- `Services/` — Background services such as `BonjourDiscoveryService` and `HealthChecker`.
-- `ViewModels/` — ViewModels for bridging services to SwiftUI views.
-- `Stores/` — Persistent app-level state like `ConnectivityStore`.
-
-## Bonjour/mDNS Setup on Raspberry Pi
-To advertise the sprinkler controller for discovery, install Avahi:
-
-```bash
-sudo apt update
-sudo apt install -y avahi-daemon avahi-utils
-```
-
-Create service file at `/etc/avahi/services/sprinkler.service`:
-
-```xml
-<?xml version="1.0" standalone='no'?>
-<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
-<service-group>
-  <name replace-wildcards="yes">%h</name>
-  <service>
-    <type>_sprinkler._tcp</type>
-    <port>8000</port>
-    <txt-record>path=/api/status</txt-record>
-  </service>
-</service-group>
-```
-
-Then restart:
-
-```bash
-sudo systemctl restart avahi-daemon
-```
-
-Verify:
+Validate from a Mac on the same network:
 
 ```bash
 dns-sd -B _sprinkler._tcp
 ```
 
 ---
+
+## 9. Next steps
+
+* Finish documenting any zone names in the UI (use the `/api/pin/{pin}/name` endpoint).
+* Review FastAPI logging now that the service is stable; adjust log rotation in `/var/log/sprinkler.log` if needed.
+* With connectivity confirmed, we can move on to polishing the iOS UI without risking backend regressions.
+
+---
+
+### Quick reference commands
+
+```bash
+# Transfer files from Mac
+scp localfile.txt tybuell@sprinkler:/srv/sprinkler-controller
+
+# SSH into the Pi
+ssh tybuell@sprinkler
+
+# Restart the controller after deploying new code
+sudo systemctl restart sprinkler.service
+
+# Check live logs
+sudo journalctl -u sprinkler.service -f
+```
+
+Keep this README up to date as wiring or configuration changes so future updates remain effortless.
