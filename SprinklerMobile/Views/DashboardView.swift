@@ -466,6 +466,20 @@ private struct PinListSection: View {
 
     let isRefreshing: Bool
 
+    /// Returns the list of pins that should be shown in the controls. If the controller reports that
+    /// every pin is disabled we still surface the catalog so the user understands what hardware is
+    /// available and sees guidance on how to re-enable control.
+    private var displayPins: [PinDTO] {
+        let active = store.activePins
+        if active.isEmpty, !store.pins.isEmpty {
+            return store.pins
+        }
+        return active
+    }
+
+    /// Indicates whether the controller currently exposes any pins as enabled.
+    private var hasActivePins: Bool { !store.activePins.isEmpty }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             header
@@ -474,18 +488,25 @@ private struct PinListSection: View {
                 Divider()
                     .background(Color.appSeparator.opacity(0.35))
 
-                if isRefreshing && store.activePins.isEmpty {
+                if isRefreshing && displayPins.isEmpty {
                     ForEach(0..<4, id: \.self) { _ in
                         PinRowSkeleton()
                     }
-                } else if store.activePins.isEmpty {
+                } else if displayPins.isEmpty {
                     Text("Enable pins in Settings to control these zones.")
                         .font(.appCaption)
                         .foregroundStyle(.secondary)
                         .padding(.vertical, 4)
                 } else {
+                    if !hasActivePins {
+                        Text("All zones are currently disabled. Enable them from Settings to control them here.")
+                            .font(.appCaption)
+                            .foregroundStyle(.secondary)
+                            .padding(.bottom, 4)
+                    }
+
                     List {
-                        ForEach(store.activePins) { pin in
+                        ForEach(displayPins) { pin in
                             PinControlRow(pin: pin,
                                           durationBinding: binding(for: pin),
                                           focus: $focusedDurationField,
@@ -508,7 +529,7 @@ private struct PinListSection: View {
             }
         }
         .accessibilityElement(children: .contain)
-        .onChange(of: store.activePins) { _, newPins in
+        .onChange(of: store.pins) { _, newPins in
             let valid = Set(newPins.map(\.pin))
             durationInputs = durationInputs.filter { valid.contains($0.key) }
         }
@@ -516,7 +537,7 @@ private struct PinListSection: View {
 
     private var listHeight: CGFloat {
         let rowHeight: CGFloat = 96
-        let total = CGFloat(store.activePins.count) * rowHeight
+        let total = CGFloat(displayPins.count) * rowHeight
         return min(max(total, rowHeight), 480)
     }
 
@@ -575,7 +596,7 @@ private struct PinListSection: View {
     }
 
     private func movePins(from offsets: IndexSet, to destination: Int) {
-        guard isExpanded else { return }
+        guard isExpanded, hasActivePins else { return }
         store.reorderPins(from: offsets, to: destination)
     }
 
