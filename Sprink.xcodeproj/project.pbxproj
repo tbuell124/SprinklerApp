@@ -22,8 +22,9 @@
                 05C68F6C7FA04E5883B160B3 /* URLNormalize.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4532F3E698CE4C0290A27EB5 /* URLNormalize.swift */; };
                 6251FB962E7C7DCF001856FD /* StatusDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB6B2E7C7DCF001856FD /* StatusDTO.swift */; };
 		6251FB972E7C7DCF001856FD /* KeychainStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB772E7C7DCF001856FD /* KeychainStorage.swift */; };
-		6251FB982E7C7DCF001856FD /* ConnectivityStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB742E7C7DCF001856FD /* ConnectivityStore.swift */; };
-		6251FB992E7C7DCF001856FD /* PinsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB812E7C7DCF001856FD /* PinsListView.swift */; };
+                6251FB982E7C7DCF001856FD /* ConnectivityStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB742E7C7DCF001856FD /* ConnectivityStore.swift */; };
+                62D0AA052F0A1B2000000001 /* ConnectivityState+Presentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62D0AA042F0A1B2000000001 /* ConnectivityState+Presentation.swift */; };
+                6251FB992E7C7DCF001856FD /* PinsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB812E7C7DCF001856FD /* PinsListView.swift */; };
 		6251FB9A2E7C7DCF001856FD /* Toast.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB792E7C7DCF001856FD /* Toast.swift */; };
 		6251FB9B2E7C7DCF001856FD /* EmptyResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB622E7C7DCF001856FD /* EmptyResponse.swift */; };
 		6251FB9D2E7C7DCF001856FD /* PinRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB802E7C7DCF001856FD /* PinRowView.swift */; };
@@ -89,8 +90,9 @@
 		6251FB6F2E7C7DCF001856FD /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		6251FB712E7C7DCF001856FD /* BonjourDiscoveryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BonjourDiscoveryService.swift; sourceTree = "<group>"; };
                 6251FB722E7C7DCF001856FD /* HealthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthService.swift; sourceTree = "<group>"; };
-		6251FB742E7C7DCF001856FD /* ConnectivityStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectivityStore.swift; sourceTree = "<group>"; };
-		6251FB752E7C7DCF001856FD /* SprinklerStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SprinklerStore.swift; sourceTree = "<group>"; };
+                6251FB742E7C7DCF001856FD /* ConnectivityStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectivityStore.swift; sourceTree = "<group>"; };
+                62D0AA042F0A1B2000000001 /* ConnectivityState+Presentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ConnectivityState+Presentation.swift"; sourceTree = "<group>"; };
+                6251FB752E7C7DCF001856FD /* SprinklerStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SprinklerStore.swift; sourceTree = "<group>"; };
                 6251FB772E7C7DCF001856FD /* KeychainStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStorage.swift; sourceTree = "<group>"; };
                 6251FB782E7C7DCF001856FD /* SkeletonView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkeletonView.swift; sourceTree = "<group>"; };
                 6251FB792E7C7DCF001856FD /* Toast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Toast.swift; sourceTree = "<group>"; };
@@ -117,14 +119,6 @@
 		AAA5C1E52E8D2F9000C533F1 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedRootGroup section */
-		620874522E7D04C10062F269 /* SprinklerConnectivityTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = SprinklerConnectivityTests;
-			sourceTree = "<group>";
-		};
-/* End PBXFileSystemSynchronizedRootGroup section */
-
 /* Begin PBXFrameworksBuildPhase section */
 		6208744E2E7D04C10062F269 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
@@ -143,18 +137,17 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		6251FB392E7C7D3F001856FD = {
-			isa = PBXGroup;
-			children = (
-				6251FB5E2E7C7DCF001856FD /* Package.swift */,
-				6251FB5F2E7C7DCF001856FD /* README.md */,
-				6251FB892E7C7DCF001856FD /* SprinklerMobile */,
-				6251FB8E2E7C7DCF001856FD /* Tests */,
-				620874522E7D04C10062F269 /* SprinklerConnectivityTests */,
-				6251FB432E7C7D3F001856FD /* Products */,
-			);
-			sourceTree = "<group>";
-		};
+                6251FB392E7C7D3F001856FD = {
+                        isa = PBXGroup;
+                        children = (
+                                6251FB5E2E7C7DCF001856FD /* Package.swift */,
+                                6251FB5F2E7C7DCF001856FD /* README.md */,
+                                6251FB892E7C7DCF001856FD /* SprinklerMobile */,
+                                6251FB8E2E7C7DCF001856FD /* Tests */,
+                                6251FB432E7C7D3F001856FD /* Products */,
+                        );
+                        sourceTree = "<group>";
+                };
 		6251FB432E7C7D3F001856FD /* Products */ = {
 			isa = PBXGroup;
 			children = (
@@ -213,15 +206,16 @@
 			path = Services;
 			sourceTree = "<group>";
 		};
-		6251FB762E7C7DCF001856FD /* Stores */ = {
-			isa = PBXGroup;
-			children = (
-				6251FB742E7C7DCF001856FD /* ConnectivityStore.swift */,
-				6251FB752E7C7DCF001856FD /* SprinklerStore.swift */,
-			);
-			path = Stores;
-			sourceTree = "<group>";
-		};
+                6251FB762E7C7DCF001856FD /* Stores */ = {
+                        isa = PBXGroup;
+                        children = (
+                                6251FB742E7C7DCF001856FD /* ConnectivityStore.swift */,
+                                62D0AA042F0A1B2000000001 /* ConnectivityState+Presentation.swift */,
+                                6251FB752E7C7DCF001856FD /* SprinklerStore.swift */,
+                        );
+                        path = Stores;
+                        sourceTree = "<group>";
+                };
 		6251FB7B2E7C7DCF001856FD /* Utils */ = {
 			isa = PBXGroup;
                         children = (
@@ -312,10 +306,7 @@
 			dependencies = (
 				620874562E7D04C10062F269 /* PBXTargetDependency */,
 			);
-			fileSystemSynchronizedGroups = (
-				620874522E7D04C10062F269 /* SprinklerConnectivityTests */,
-			);
-			name = SprinklerConnectivityTests;
+                        name = SprinklerConnectivityTests;
 			packageProductDependencies = (
 			);
 			productName = SprinklerConnectivityTests;
@@ -422,8 +413,9 @@
 				6251FB942E7C7DCF001856FD /* BonjourDiscoveryService.swift in Sources */,
 				6251FB962E7C7DCF001856FD /* StatusDTO.swift in Sources */,
 				6251FB972E7C7DCF001856FD /* KeychainStorage.swift in Sources */,
-				6251FB982E7C7DCF001856FD /* ConnectivityStore.swift in Sources */,
-				62D0AA012F0A1B2000000001 /* ConnectionTestLog.swift in Sources */,
+                                6251FB982E7C7DCF001856FD /* ConnectivityStore.swift in Sources */,
+                                62D0AA052F0A1B2000000001 /* ConnectivityState+Presentation.swift in Sources */,
+                                62D0AA012F0A1B2000000001 /* ConnectionTestLog.swift in Sources */,
 				6251FB992E7C7DCF001856FD /* PinsListView.swift in Sources */,
                                 6251FB9A2E7C7DCF001856FD /* Toast.swift in Sources */,
                                 6BFEAF8D8CE34D24B3E6D573 /* ControllerConfig.swift in Sources */,

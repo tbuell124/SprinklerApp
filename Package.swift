@@ -44,7 +44,8 @@ let package = Package(
                 "Data/StatusDTO.swift",
                 "Data/AuthenticationController.swift",
                 "Data/EmptyResponse.swift",
-                "Utils/Toast.swift"
+                "Utils/Toast.swift",
+                "Stores/ConnectivityState+Presentation.swift"
             ],
             sources: [
                 "Models/ConnectionTestLog.swift",
