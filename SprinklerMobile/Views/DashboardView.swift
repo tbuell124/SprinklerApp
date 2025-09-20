@@ -35,6 +35,19 @@ struct DashboardView: View {
 
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 24) {
+                        if let errorMessage = sprinklerStore.connectionErrorMessage,
+                           !errorMessage.isEmpty {
+                            BannerMessageView(style: .error,
+                                              message: errorMessage,
+                                              onDismiss: { sprinklerStore.dismissErrorMessage() })
+                        }
+
+                        if let syncMessage = sprinklerStore.pendingSyncMessage {
+                            BannerMessageView(style: .info,
+                                              message: syncMessage,
+                                              onDismiss: nil)
+                        }
+
                         connectivityStatusBadge
                         ledStatusCard
                         DashboardCard(title: "Schedule Summary") {
