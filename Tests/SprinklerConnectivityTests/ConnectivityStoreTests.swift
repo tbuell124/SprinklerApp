@@ -7,6 +7,55 @@ import XCTest
 #endif
 
 final class ConnectivityStoreTests: XCTestCase {
+    func testSuccessfulHealthCheckUpdatesStateAndLogs() async {
+        let suiteName = "sprinkler.connectivity.success"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            XCTFail("Unable to create user defaults suite")
+            return
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let checker = MockHealthChecker(result: .connected)
+        let store = await ConnectivityStore(checker: checker, defaults: defaults)
+
+        await store.testConnection()
+
+        await MainActor.run {
+            XCTAssertEqual(store.state, .connected)
+            XCTAssertFalse(store.isChecking)
+            XCTAssertNotNil(store.lastCheckedDate)
+            XCTAssertEqual(store.lastTestResult?.outcome, .success)
+            XCTAssertEqual(store.recentLogs.first?.outcome, .success)
+            XCTAssertNotNil(store.lastSuccessfulConnectionDate)
+        }
+    }
+
+    func testOfflineHealthCheckPublishesFailureState() async {
+        let suiteName = "sprinkler.connectivity.failure"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            XCTFail("Unable to create user defaults suite")
+            return
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let errorMessage = "Timed out waiting for controller"
+        let checker = MockHealthChecker(result: .offline(errorDescription: errorMessage))
+        let store = await ConnectivityStore(checker: checker, defaults: defaults)
+
+        await store.testConnection()
+
+        await MainActor.run {
+            XCTAssertEqual(store.state, .offline(errorDescription: errorMessage))
+            XCTAssertFalse(store.isChecking)
+            XCTAssertNotNil(store.lastCheckedDate)
+            XCTAssertEqual(store.lastTestResult?.outcome, .failure)
+            XCTAssertEqual(store.recentLogs.first?.message, errorMessage)
+            XCTAssertNil(store.lastSuccessfulConnectionDate)
+        }
+    }
+
     func testBaseURLPersistsToUserDefaults() async {
         let suiteName = "sprinkler.connectivity.tests"
         guard let defaults = UserDefaults(suiteName: suiteName) else {
