@@ -2,11 +2,11 @@ import SwiftUI
 
 struct ScheduleRowView: View {
     @EnvironmentObject private var store: SprinklerStore
-    let schedule: ScheduleDTO
+    let schedule: Schedule
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(schedule.name ?? "Schedule")
+            Text(schedule.sanitizedName ?? "Schedule")
                 .font(.headline)
             HStack(spacing: 12) {
                 if let durationText = durationLabelText {
@@ -14,11 +14,9 @@ struct ScheduleRowView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                if let start = schedule.startTime {
-                    Label(start, systemImage: "alarm")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+                Label(schedule.startTime, systemImage: "alarm")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 if let daysText = daysLabelText {
                     Label(daysText, systemImage: "calendar")
                         .font(.caption2)
@@ -31,22 +29,22 @@ struct ScheduleRowView: View {
     }
 
     private var durationLabelText: String? {
-        let totalDuration = schedule.totalDuration(defaultPins: store.pins)
+        let totalDuration = schedule.totalDurationMinutes
         guard totalDuration > 0 else { return nil }
         return "\(totalDuration) min"
     }
 
     private var daysLabelText: String? {
-        guard let days = schedule.days, !days.isEmpty else {
+        guard !schedule.days.isEmpty else {
             return "Daily"
         }
 
-        let normalized = days.map { $0.lowercased() }
-        let fullWeek = Set(ScheduleDraft.defaultDays.map { $0.lowercased() })
+        let normalized = schedule.days.map { $0.lowercased() }
+        let fullWeek = Set(Schedule.defaultDays.map { $0.lowercased() })
         if Set(normalized) == fullWeek {
             return "Daily"
         }
 
-        return ScheduleDraft.orderedDays(from: days).joined(separator: ", ")
+        return Schedule.orderedDays(from: schedule.days).joined(separator: ", ")
     }
 }

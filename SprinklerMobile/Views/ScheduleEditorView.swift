@@ -7,7 +7,7 @@ struct ScheduleEditorView: View {
     @State private var timeSelection: Date
     let onSave: (ScheduleDraft) -> Void
 
-    private let dayOptions = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    private let dayOptions = Schedule.defaultDays
 
     private var pinsByNumber: [Int: PinDTO] {
         Dictionary(uniqueKeysWithValues: store.pins.map { ($0.pin, $0) })
@@ -160,7 +160,7 @@ struct ScheduleEditorView: View {
         } else {
             draft.days.append(day)
         }
-        draft.days = ScheduleDraft.orderedDays(from: draft.days)
+        draft.days = Schedule.orderedDays(from: draft.days)
     }
 
     private static func date(from timeString: String) -> Date? {

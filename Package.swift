@@ -34,6 +34,8 @@ let package = Package(
                 "Data/PinDTO.swift",
                 "Data/SSLPinningDelegate.swift",
                 "Data/ScheduleDraft.swift",
+                "Data/Schedule.swift",
+                "Data/SchedulePersistence.swift",
                 "Data/GPIOCatalog.swift",
                 "Utils/KeychainStorage.swift",
                 "Utils/SkeletonView.swift",
