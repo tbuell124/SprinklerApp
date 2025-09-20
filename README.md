@@ -51,11 +51,42 @@ The Raspberry Pi backend exposes `/status` and `/zone/(on|off)/{zone}`. To keep 
 
 ## iOS Client Overview
 
-The Sprink! iOS app communicates with a FastAPI backend hosted on your Raspberry Pi. Major features include:
+The Sprink! iOS app is a modern SwiftUI application with a comprehensive 4-slot dashboard interface. Major features include:
 
+### 🎛️ Modern 4-Slot Dashboard
+- **LED Status Grid**: Compact square grid showing GPIO pin states, Pi connectivity, and rain delay status
+- **Schedule Summary**: Real-time "Currently Running" and "Up Next" schedule information  
+- **Pin Controls**: Collapsible, reorderable pin list with manual toggles and run timers
+- **Rain Status**: Connectivity monitoring, weather integration, and automation controls
+
+### 📅 Advanced Schedule Management
+- Sequence scheduling with pin/duration pairs
+- Cross-midnight schedule support (handles 24-hour wraparound)
+- Drag-and-drop reordering within sequences
+- Schedule duplication and deletion
+- Collapsible sections for active pins
+
+### ⚙️ Comprehensive Settings
+- Pin renaming with GPIO number display
+- Active/inactive pin management
+- Raspberry Pi IP address configuration with connection testing
+- Rain delay automation (ZIP code, threshold percentage)
+- Detailed connection logs and failure reporting
+
+### ♿ Accessibility & Modern Design
+- Full Dynamic Type support with custom font scaling
+- High contrast colors (4.5:1 ratio compliance)
+- Comprehensive VoiceOver support with proper labels and hints
+- Adaptive theming for light/dark modes
+- Smooth animations and micro-interactions
+
+### Technical Features
 - Zone toggling via authenticated HTTP endpoints
 - Live status monitoring and moisture lockout awareness
 - Bonjour/mDNS discovery so you can find your sprinkler controller automatically on the LAN
+- Modern SwiftUI patterns with MVVM architecture
+- Async/await for network operations
+- Comprehensive error handling
 
 Refer to the Xcode project for the full SwiftUI implementation. When you update the backend, ensure that the API endpoints stay aligned with the iOS client expectations documented within the app source code comments.
 
