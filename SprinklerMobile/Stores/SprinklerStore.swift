@@ -1015,7 +1015,7 @@ final class SprinklerStore: ObservableObject {
     }
 
     private func apply(status: StatusDTO) {
-        let mergedPins = mergePinsWithCatalog(status.pins ?? [])
+        let mergedPins = PinCatalogMerger.merge(current: pins, remote: status.pins)
         assignIfDifferent(\SprinklerStore.pins, to: mergedPins)
         let remoteSchedules = (status.schedules ?? []).map { Schedule(dto: $0, defaultPins: mergedPins) }
         mergeSchedulesWithRemote(remoteSchedules)
@@ -1025,44 +1025,6 @@ final class SprinklerStore: ObservableObject {
             updateManualRainDelayHours(duration)
         }
         updatePendingSyncMessage()
-    }
-
-    /// Blends controller supplied pin metadata with the static catalog so every
-    /// safely drivable GPIO appears in the UI even if the backend omits it.
-    private func mergePinsWithCatalog(_ remotePins: [PinDTO]) -> [PinDTO] {
-        let catalog = PinDTO.sprinklerSafeOutputPins
-        let catalogSet = Set(catalog)
-
-        var catalogOverrides: [Int: PinDTO] = [:]
-        var additionalPins: [PinDTO] = []
-
-        for pin in remotePins {
-            if catalogSet.contains(pin.pin) {
-                // Preserve the backend-provided configuration for catalog pins.
-                catalogOverrides[pin.pin] = pin
-            } else {
-                // Keep any extra pins returned by the server so nothing is lost.
-                additionalPins.append(pin)
-            }
-        }
-
-        let catalogPins = catalog.map { pinNumber -> PinDTO in
-            if let existing = catalogOverrides[pinNumber] {
-                return existing
-            }
-            // Backend did not report this pin. Surface a placeholder that
-            // remains enabled so the dashboard still lists every GPIO the
-            // hardware supports, preserving the legacy behaviour where all
-            // default zones were visible even before the Pi responded.
-            return PinDTO(pin: pinNumber,
-                          name: nil,
-                          isActive: false,
-                          isEnabled: true)
-        }
-
-        // Append any non-catalog pins so the full server response remains visible.
-        let sortedAdditionalPins = additionalPins.sorted { $0.pin < $1.pin }
-        return catalogPins + sortedAdditionalPins
     }
 
     private func mergeSchedulesWithRemote(_ remoteSchedules: [Schedule]) {
