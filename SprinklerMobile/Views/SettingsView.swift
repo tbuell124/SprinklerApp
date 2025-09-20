@@ -35,6 +35,9 @@ struct SettingsView: View {
                                          lastResult: store.lastTestResult)
 
                         ConnectionSettingsCard(baseURL: $store.baseURLString,
+                                               discoveryViewModel: discoveryViewModel,
+                                               logs: Array(store.recentLogs.prefix(3)),
+                                               isDiscoveryEnabled: ControllerConfig.isDiscoveryEnabled,
                                                isChecking: store.isChecking,
                                                state: store.state,
                                                validationMessage: validationMessage,
@@ -43,7 +46,9 @@ struct SettingsView: View {
                                                focus: $isURLFieldFocused,
                                                onCommit: runHealthCheck,
                                                onCopy: copyAddressToPasteboard,
-                                               onViewLogs: { isShowingLogs = true })
+                                               onViewLogs: { isShowingLogs = true },
+                                               onRefreshDiscovery: refreshDiscovery,
+                                               onSelectDevice: useDiscoveredDevice)
 
                         RainDelaySettingsCard(store: sprinklerStore,
                                                onSave: {
@@ -57,12 +62,6 @@ struct SettingsView: View {
                                               totalPins: sprinklerStore.pins.count)
                         }
                         .buttonStyle(.plain)
-
-                        DiscoveryCard(viewModel: discoveryViewModel,
-                                      logs: Array(store.recentLogs.prefix(3)),
-                                      onSelect: useDiscoveredDevice,
-                                      onRefresh: refreshDiscovery,
-                                      onViewLogs: { isShowingLogs = true })
 
                         HelpfulSettingsTipsCard()
                     }
@@ -78,8 +77,16 @@ struct SettingsView: View {
             } message: {
                 Text("You can now paste the sprinkler controller address wherever it's needed.")
             }
-            .onAppear { discoveryViewModel.start() }
-            .onDisappear { discoveryViewModel.stop() }
+            .onAppear {
+                if ControllerConfig.isDiscoveryEnabled {
+                    discoveryViewModel.start()
+                }
+            }
+            .onDisappear {
+                if ControllerConfig.isDiscoveryEnabled {
+                    discoveryViewModel.stop()
+                }
+            }
             .sheet(isPresented: $isShowingLogs) {
                 ConnectionLogsView(logs: store.recentLogs)
             }
@@ -116,6 +123,7 @@ struct SettingsView: View {
     /// Applies the selected Bonjour device to the connection settings and tests immediately.
     private func useDiscoveredDevice(_ device: DiscoveredDevice) {
         isURLFieldFocused = false
+        guard ControllerConfig.isDiscoveryEnabled else { return }
         store.baseURLString = device.baseURLString
         runHealthCheck()
     }
@@ -123,6 +131,7 @@ struct SettingsView: View {
     /// Initiates another search for Bonjour services.
     private func refreshDiscovery() {
         isURLFieldFocused = false
+        guard ControllerConfig.isDiscoveryEnabled else { return }
         discoveryViewModel.refresh()
     }
 
@@ -223,6 +232,9 @@ private struct SettingsHeroCard: CardView {
 /// Primary card that holds the controller address field and connectivity state.
 private struct ConnectionSettingsCard: CardView {
     @Binding var baseURL: String
+    @ObservedObject var discoveryViewModel: DiscoveryViewModel
+    let logs: [ConnectionTestLog]
+    let isDiscoveryEnabled: Bool
     let isChecking: Bool
     let state: ConnectivityState
     let validationMessage: String?
@@ -232,9 +244,16 @@ private struct ConnectionSettingsCard: CardView {
     let onCommit: () -> Void
     let onCopy: () -> Void
     let onViewLogs: () -> Void
+    let onRefreshDiscovery: () -> Void
+    let onSelectDevice: (DiscoveredDevice) -> Void
+
+    /// Cached trimmed value of the base URL to avoid repeating string operations.
+    private var trimmedBaseURL: String {
+        baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 
     var cardBody: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 24) {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Controller Address")
                     .font(.appHeadline)
@@ -272,7 +291,7 @@ private struct ConnectionSettingsCard: CardView {
                         }
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(isChecking || baseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(isChecking || trimmedBaseURL.isEmpty)
                     .accessibilityLabel("Test connection")
                     .accessibilityHint("Send a request to the sprinkler controller to verify connectivity.")
 
@@ -283,7 +302,7 @@ private struct ConnectionSettingsCard: CardView {
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
-                    .disabled(baseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(trimmedBaseURL.isEmpty)
                     .accessibilityLabel("Copy controller address")
                     .accessibilityHint("Copies the configured address to the clipboard.")
                 }
@@ -313,6 +332,14 @@ private struct ConnectionSettingsCard: CardView {
                 }
             }
 
+            if isDiscoveryEnabled {
+                discoverySection
+            }
+
+            if !logs.isEmpty {
+                diagnosticsSection
+            }
+
             Button(action: onViewLogs) {
                 Label("View Connection Logs", systemImage: "list.bullet.rectangle")
                     .font(.appButton)
@@ -321,6 +348,116 @@ private struct ConnectionSettingsCard: CardView {
             .accessibilityHint("Opens the detailed history of recent connection checks.")
         }
         .accessibilityElement(children: .contain)
+    }
+
+    /// Renders the discovery interface showing Bonjour results beneath the manual entry field.
+    @ViewBuilder
+    private var discoverySection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 12) {
+                Text("Discovered Devices")
+                    .font(.appSubheadline.weight(.semibold))
+                Spacer()
+                if discoveryViewModel.isBrowsing {
+                    ProgressView()
+                        .controlSize(.small)
+                        .accessibilityLabel("Discovering devices")
+                } else {
+                    Button("Refresh", action: onRefreshDiscovery)
+                        .font(.appButton)
+                        .disabled(discoveryViewModel.isBrowsing)
+                }
+            }
+
+            if let message = discoveryViewModel.errorMessage {
+                Text(message)
+                    .font(.appCaption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if discoveryViewModel.devices.isEmpty {
+                Group {
+                    if discoveryViewModel.isBrowsing {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text("Searching your network…")
+                                .font(.appFootnote)
+                        }
+                    } else if discoveryViewModel.errorMessage == nil {
+                        Text("No sprinkler controllers discovered yet. Tap Refresh to try again.")
+                            .font(.appFootnote)
+                    }
+                }
+                .foregroundStyle(.secondary)
+            } else {
+                VStack(spacing: 10) {
+                    ForEach(discoveryViewModel.devices) { device in
+                        Button {
+                            onSelectDevice(device)
+                        } label: {
+                            HStack(alignment: .center, spacing: 12) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(deviceDisplayName(device))
+                                        .font(.appSubheadline.weight(.semibold))
+                                        .foregroundStyle(.primary)
+                                    Text(deviceSubtitle(for: device))
+                                        .font(.appCaption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                if isDeviceSelected(device) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(Color.appAccentPrimary)
+                                        .accessibilityHidden(true)
+                                }
+                            }
+                            .padding(.vertical, 14)
+                            .padding(.horizontal, 16)
+                            .background(Color.appSecondaryBackground.opacity(0.55))
+                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Connect to \(deviceDisplayName(device))")
+                    }
+                }
+            }
+        }
+        .transition(.opacity)
+    }
+
+    /// Surfaces recent connection attempts so the user can correlate discovery results with health checks.
+    @ViewBuilder
+    private var diagnosticsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Divider()
+                .background(Color.appSeparator.opacity(0.4))
+            Text("Recent Connection Tests")
+                .font(.appSubheadline.weight(.semibold))
+
+            VStack(spacing: 8) {
+                ForEach(logs) { log in
+                    ConnectionLogPreviewRow(log: log)
+                }
+            }
+        }
+    }
+
+    /// Determines whether the discovered device matches the currently configured base URL.
+    private func isDeviceSelected(_ device: DiscoveredDevice) -> Bool {
+        baseURL == device.baseURLString
+    }
+
+    /// Produces a human-friendly name for the discovered service.
+    private func deviceDisplayName(_ device: DiscoveredDevice) -> String {
+        let trimmed = device.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "sprinkler" : trimmed
+    }
+
+    /// Formats the subtitle showing host/IP and port information.
+    private func deviceSubtitle(for device: DiscoveredDevice) -> String {
+        let endpoint = device.host ?? device.ip ?? "—"
+        return "\(endpoint):\(device.port)"
     }
 }
 
@@ -535,114 +672,7 @@ private struct RainDelaySettingsCard: CardView {
     }
 }
 
-/// Displays discovered Bonjour devices in a stylised card.
-private struct DiscoveryCard: CardView {
-    @ObservedObject var viewModel: DiscoveryViewModel
-    let logs: [ConnectionTestLog]
-    let onSelect: (DiscoveredDevice) -> Void
-    let onRefresh: () -> Void
-    let onViewLogs: () -> Void
-
-    var cardBody: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            HStack(alignment: .center, spacing: 12) {
-                Text("Discovered Devices")
-                    .font(.appHeadline)
-                Spacer()
-                if viewModel.isBrowsing {
-                    ProgressView()
-                        .controlSize(.small)
-                        .accessibilityLabel("Discovering devices")
-                }
-            }
-
-            if let message = viewModel.errorMessage {
-                Text(message)
-                    .font(.appFootnote)
-                    .foregroundStyle(.secondary)
-            }
-
-            if viewModel.devices.isEmpty {
-                Group {
-                    if viewModel.isBrowsing {
-                        HStack(spacing: 8) {
-                            ProgressView()
-                                .controlSize(.small)
-                            Text("Searching your network…")
-                                .font(.appFootnote)
-                        }
-                    } else if viewModel.errorMessage == nil {
-                        Text("No sprinkler controllers discovered yet. Tap Refresh to try again.")
-                            .font(.appFootnote)
-                    }
-                }
-                .foregroundStyle(.secondary)
-            } else {
-                VStack(spacing: 12) {
-                    ForEach(viewModel.devices) { device in
-                        Button {
-                            onSelect(device)
-                        } label: {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text(deviceDisplayName(device))
-                                    .font(.appSubheadline.weight(.semibold))
-                                    .foregroundStyle(.primary)
-                                Text(deviceSubtitle(for: device))
-                                    .font(.appCaption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(16)
-                            .background(Color.appSecondaryBackground.opacity(0.55))
-                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityHint("Connect to \(deviceDisplayName(device))")
-                    }
-                }
-            }
-
-            if !logs.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
-                    Divider()
-                        .background(Color.appSeparator.opacity(0.4))
-                    Text("Recent Connection Tests")
-                        .font(.appSubheadline.weight(.semibold))
-                    VStack(spacing: 8) {
-                        ForEach(logs) { log in
-                            ConnectionLogPreviewRow(log: log)
-                        }
-                    }
-                    Button(action: onViewLogs) {
-                        Label("View All Logs", systemImage: "clock.arrow.circlepath")
-                            .font(.appButton)
-                    }
-                    .buttonStyle(.bordered)
-                    .accessibilityHint("Opens the detailed list of connection attempts.")
-                }
-            }
-
-            HStack {
-                Spacer()
-                Button("Refresh", action: onRefresh)
-                    .font(.appButton)
-                    .disabled(viewModel.isBrowsing)
-            }
-        }
-        .accessibilityElement(children: .contain)
-    }
-
-    private func deviceDisplayName(_ device: DiscoveredDevice) -> String {
-        let trimmed = device.name.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "sprinkler" : trimmed
-    }
-
-    private func deviceSubtitle(for device: DiscoveredDevice) -> String {
-        let endpoint = device.host ?? device.ip ?? "—"
-        return "\(endpoint):\(device.port)"
-    }
-}
-/// Compact row used to preview a single connection test result inside the discovery card.
+/// Compact row used to preview a single connection test result inside the discovery section.
 private struct ConnectionLogPreviewRow: View {
     let log: ConnectionTestLog
 

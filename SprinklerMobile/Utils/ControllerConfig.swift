@@ -15,6 +15,12 @@ enum ControllerConfig {
     /// Default TCP port exposed by the controller web service.
     static let defaultPort = 8000
 
+    /// Feature toggle that determines whether Bonjour discovery is surfaced in the UI.
+    ///
+    /// Keeping the switch centralised makes it easy to disable discovery in builds where
+    /// Bonjour APIs are not available (for example, unit tests running on Linux).
+    static let isDiscoveryEnabled = true
+
     /// Canonical base URL used for new installations before the user customises the address.
     static var defaultBaseURL: URL {
         var components = URLComponents()
