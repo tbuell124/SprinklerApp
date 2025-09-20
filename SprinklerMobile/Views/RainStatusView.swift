@@ -7,23 +7,34 @@ struct RainStatusView: View {
     let isLoading: Bool
     let isAutomationEnabled: Bool
     let isUpdatingAutomation: Bool
-    let onToggleRain: (Bool) -> Void
+    let manualDelayHours: Int
+    let onToggleRain: (Bool, Int?) -> Void
     let onToggleAutomation: (Bool) -> Void
+    let onUpdateManualRainDuration: (Int) -> Void
+
+    @State private var isDurationEditorPresented = false
+    @State private var manualDurationSelection: Int = 12
+    @State private var isActivatingManualDelay = false
 
     init(rain: RainDTO?,
          connectivity: ConnectivityState,
          isLoading: Bool,
          isAutomationEnabled: Bool,
          isUpdatingAutomation: Bool,
-         onToggleRain: @escaping (Bool) -> Void,
-         onToggleAutomation: @escaping (Bool) -> Void) {
+         manualDelayHours: Int,
+         onToggleRain: @escaping (Bool, Int?) -> Void,
+         onToggleAutomation: @escaping (Bool) -> Void,
+         onUpdateManualRainDuration: @escaping (Int) -> Void) {
         self.rain = rain
         self.connectivity = connectivity
         self.isLoading = isLoading
         self.isAutomationEnabled = isAutomationEnabled
         self.isUpdatingAutomation = isUpdatingAutomation
+        self.manualDelayHours = manualDelayHours
         self.onToggleRain = onToggleRain
         self.onToggleAutomation = onToggleAutomation
+        self.onUpdateManualRainDuration = onUpdateManualRainDuration
+        _manualDurationSelection = State(initialValue: max(manualDelayHours, 1))
     }
 
     var body: some View {
@@ -44,6 +55,7 @@ struct RainStatusView: View {
 
                         if showManualToggle {
                             manualToggle
+                            manualDurationButton
                         }
 
                         statusHeader
@@ -77,6 +89,20 @@ struct RainStatusView: View {
                 }
                 .accessibilityElement(children: .contain)
             }
+        }
+        .sheet(isPresented: $isDurationEditorPresented) {
+            RainDelayDurationEditor(hours: $manualDurationSelection,
+                                    mode: isActivatingManualDelay ? .activate : .configure,
+                                    onCancel: {
+                                        isActivatingManualDelay = false
+                                    },
+                                    onConfirm: {
+                                        handleDurationConfirmation()
+                                        isActivatingManualDelay = false
+                                    })
+        }
+        .onChange(of: manualDelayHours) { _, newValue in
+            manualDurationSelection = sanitizedDuration(newValue)
         }
     }
 
@@ -126,8 +152,26 @@ struct RainStatusView: View {
             }
         }
         .toggleStyle(.switch)
-        .accessibilityHint("Double tap to \(rain?.isActive == true ? "end" : "start") a temporary rain delay.")
+        .accessibilityHint("Double tap to \(rain?.isActive == true ? \"end\" : \"start\") a temporary rain delay.")
     }
+
+    private var manualDurationButton: some View {
+        Button {
+            presentDurationEditor(activatingDelay: false)
+        } label: {
+            Label {
+                Text("Set duration (\(manualDurationLabel))")
+                    .font(.appCaption)
+            } icon: {
+                Image(systemName: "clock.arrow.circlepath")
+            }
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.secondary)
+        .accessibilityLabel("Set manual rain delay duration")
+        .accessibilityValue(manualDurationLabel)
+    }
+
 
     private var statusHeader: some View {
         Label {
@@ -168,11 +212,57 @@ struct RainStatusView: View {
         Binding(
             get: { rain?.isActive ?? false },
             set: { newValue in
-                if newValue != (rain?.isActive ?? false) {
-                    onToggleRain(newValue)
+                let currentValue = rain?.isActive ?? false
+                guard newValue != currentValue else { return }
+                if newValue {
+                    presentDurationEditor(activatingDelay: true)
+                } else {
+                    onToggleRain(false, nil)
                 }
             }
         )
+    }
+
+    private var manualDelayDisplayHours: Int {
+        if let duration = rain?.durationHours, rain?.isActive == true, duration > 0 {
+            return sanitizedDuration(duration)
+        }
+        return sanitizedDuration(manualDelayHours)
+    }
+
+    private var manualDurationLabel: String {
+        let hours = manualDelayDisplayHours
+        return "\(hours) \(hours == 1 ? "hour" : "hours")"
+    }
+
+    private func presentDurationEditor(activatingDelay: Bool) {
+        isActivatingManualDelay = activatingDelay
+        let seed: Int
+        if activatingDelay {
+            seed = sanitizedDuration(rain?.durationHours)
+        } else if rain?.isActive == true {
+            seed = sanitizedDuration(rain?.durationHours)
+        } else {
+            seed = sanitizedDuration(manualDelayHours)
+        }
+        manualDurationSelection = seed
+        isDurationEditorPresented = true
+    }
+
+    private func handleDurationConfirmation() {
+        let selected = sanitizedDuration(manualDurationSelection)
+        onUpdateManualRainDuration(selected)
+        if isActivatingManualDelay {
+            onToggleRain(true, selected)
+        }
+    }
+
+    private func sanitizedDuration(_ value: Int?) -> Int {
+        sanitizedDuration(value ?? manualDelayHours)
+    }
+
+    private func sanitizedDuration(_ value: Int) -> Int {
+        max(1, min(value, 72))
     }
 
     private var automationBinding: Binding<Bool> {
@@ -242,5 +332,111 @@ struct RainStatusView: View {
 
     private var automationStatusColor: Color {
         hasAutomationConfiguration ? .appInfo : .appWarning
+    }
+}
+
+// MARK: - Manual Rain Delay Editor
+
+/// Sheet that gathers the number of hours to pause schedules when the manual rain delay is toggled on.
+private struct RainDelayDurationEditor: View {
+    enum Mode {
+        case configure
+        case activate
+
+        var confirmationTitle: String {
+            switch self {
+            case .configure: return "Save"
+            case .activate: return "Start Delay"
+            }
+        }
+    }
+
+    @Binding var hours: Int
+    let mode: Mode
+    let onCancel: () -> Void
+    let onConfirm: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @FocusState private var isTextFieldFocused: Bool
+
+    private let validRange: ClosedRange<Int> = 1...72
+    private let quickPickValues: [Int] = [6, 12, 24, 48]
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Delay Length") {
+                    Stepper(value: $hours, in: validRange) {
+                        HStack {
+                            Text("Duration")
+                            Spacer()
+                            Text(durationText)
+                                .font(.appBody)
+                                .fontWeight(.semibold)
+                        }
+                    }
+                    TextField("Hours", value: $hours, format: .number)
+                        .keyboardType(.numberPad)
+                        .focused($isTextFieldFocused)
+                    quickPickRow
+                } footer: {
+                    Text("All watering schedules will remain paused for the selected duration.")
+                        .font(.appCaption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .navigationTitle("Manual Rain Delay")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        onCancel()
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(mode.confirmationTitle) {
+                        onConfirm()
+                        dismiss()
+                    }
+                    .disabled(!validRange.contains(hours))
+                }
+            }
+        }
+        .onAppear {
+            // Automatically focus the text field when configuring the default duration.
+            if mode == .configure {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    isTextFieldFocused = true
+                }
+            }
+        }
+        .onChange(of: hours) { _, newValue in
+            if newValue < validRange.lowerBound {
+                hours = validRange.lowerBound
+            } else if newValue > validRange.upperBound {
+                hours = validRange.upperBound
+            }
+        }
+    }
+
+    private var durationText: String {
+        "\(hours) \(hours == 1 ? "Hour" : "Hours")"
+    }
+
+    private var quickPickRow: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Quick Select")
+                .font(.appCaption)
+                .foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                ForEach(quickPickValues, id: \.self) { value in
+                    Button("\(value)h") {
+                        hours = value
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+            }
+        }
     }
 }
