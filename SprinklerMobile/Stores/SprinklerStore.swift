@@ -68,7 +68,6 @@ final class SprinklerStore: ObservableObject {
         scheduleTimeline(relativeTo: Date()).next
     }
     @Published private(set) var schedules: [ScheduleDTO] = []
-    @Published private(set) var scheduleGroups: [ScheduleGroupDTO] = []
     @Published private(set) var rain: RainDTO?
     @Published private(set) var rainAutomationEnabled: Bool = false
     @Published var rainSettingsZip: String = ""
@@ -635,73 +634,6 @@ final class SprinklerStore: ObservableObject {
         }
     }
 
-    func loadScheduleGroups() async {
-        do {
-            let groups = try await client.fetchScheduleGroups()
-            scheduleGroups = groups
-        } catch {
-            showToast(message: "Unable to load groups", style: .error)
-        }
-    }
-
-    func createScheduleGroup(name: String) {
-        Task {
-            do {
-                try await client.createScheduleGroup(name: name)
-                await loadScheduleGroups()
-                await MainActor.run {
-                    showToast(message: "Group created", style: .success)
-                }
-            } catch {
-                await MainActor.run {
-                    showToast(message: "Failed to create group", style: .error)
-                }
-            }
-        }
-    }
-
-    func selectScheduleGroup(id: String) {
-        Task {
-            do {
-                try await client.selectScheduleGroup(id: id)
-                await refresh()
-            } catch {
-                await MainActor.run {
-                    showToast(message: "Failed to select group", style: .error)
-                }
-            }
-        }
-    }
-
-    func addAllToGroup(id: String) {
-        Task {
-            do {
-                try await client.addAllToGroup(id: id)
-                await refresh()
-            } catch {
-                await MainActor.run {
-                    showToast(message: "Failed to add all", style: .error)
-                }
-            }
-        }
-    }
-
-    func deleteScheduleGroup(id: String) {
-        Task {
-            do {
-                try await client.deleteScheduleGroup(id: id)
-                await loadScheduleGroups()
-                await MainActor.run {
-                    showToast(message: "Group deleted", style: .success)
-                }
-            } catch {
-                await MainActor.run {
-                    showToast(message: "Failed to delete group", style: .error)
-                }
-            }
-        }
-    }
-
     func resolveCurrentAddress() throws -> URL {
         let url = try Validators.normalizeBaseAddress(targetAddress)
         validationError = nil
@@ -757,7 +689,6 @@ final class SprinklerStore: ObservableObject {
         let mergedPins = mergePinsWithCatalog(status.pins ?? [])
         assignIfDifferent(\SprinklerStore.pins, to: mergedPins)
         assignIfDifferent(\SprinklerStore.schedules, to: status.schedules ?? [])
-        assignIfDifferent(\SprinklerStore.scheduleGroups, to: status.scheduleGroups ?? [])
         assignIfDifferent(\SprinklerStore.rain, to: status.rain)
         syncRainSettings(from: status.rain)
         if let duration = status.rain?.durationHours, duration > 0 {
@@ -973,7 +904,6 @@ final class SprinklerStore: ObservableObject {
     private func persistCurrentStateSnapshot() {
         let snapshot = StatusDTO(pins: pins,
                                  schedules: schedules,
-                                 scheduleGroups: scheduleGroups,
                                  rain: rain,
                                  version: serverVersion,
                                  lastUpdated: Date())

@@ -110,15 +110,3 @@ struct RainStatusSkeleton: View {
         .background(RoundedRectangle(cornerRadius: 12).fill(Color(.secondarySystemBackground)))
     }
 }
-
-struct ScheduleGroupSkeleton: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            SkeletonLine(height: 16)
-                .frame(maxWidth: 120)
-            SkeletonLine(height: 12)
-                .frame(maxWidth: 180)
-        }
-        .padding(.vertical, 4)
-    }
-}

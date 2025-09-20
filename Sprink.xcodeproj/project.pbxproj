@@ -43,7 +43,6 @@
 		6251FBAA2E7C7DCF001856FD /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB7F2E7C7DCF001856FD /* DashboardView.swift */; };
                 6251FBAC2E7C7DCF001856FD /* HealthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB722E7C7DCF001856FD /* HealthService.swift */; };
 		6251FBAD2E7C7DCF001856FD /* PinDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB652E7C7DCF001856FD /* PinDTO.swift */; };
-		6251FBAE2E7C7DCF001856FD /* ScheduleGroupDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB692E7C7DCF001856FD /* ScheduleGroupDTO.swift */; };
 		6251FBAF2E7C7DCF001856FD /* DiscoveryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB7C2E7C7DCF001856FD /* DiscoveryViewModel.swift */; };
 		6251FBB02E7C7DCF001856FD /* ScheduleDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB672E7C7DCF001856FD /* ScheduleDraft.swift */; };
 		6251FBB12E7C7DCF001856FD /* RainStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251FB822E7C7DCF001856FD /* RainStatusView.swift */; };
@@ -83,7 +82,6 @@
 		6251FB662E7C7DCF001856FD /* RainDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RainDTO.swift; sourceTree = "<group>"; };
 		6251FB672E7C7DCF001856FD /* ScheduleDraft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleDraft.swift; sourceTree = "<group>"; };
 		6251FB682E7C7DCF001856FD /* ScheduleDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleDTO.swift; sourceTree = "<group>"; };
-		6251FB692E7C7DCF001856FD /* ScheduleGroupDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleGroupDTO.swift; sourceTree = "<group>"; };
 		6251FB6A2E7C7DCF001856FD /* SSLPinningDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSLPinningDelegate.swift; sourceTree = "<group>"; };
 		6251FB6B2E7C7DCF001856FD /* StatusDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusDTO.swift; sourceTree = "<group>"; };
 		6251FB6D2E7C7DCF001856FD /* DiscoveredDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoveredDevice.swift; sourceTree = "<group>"; };
@@ -170,9 +168,8 @@
 				6251FB652E7C7DCF001856FD /* PinDTO.swift */,
 				6251FB662E7C7DCF001856FD /* RainDTO.swift */,
 				6251FB672E7C7DCF001856FD /* ScheduleDraft.swift */,
-				6251FB682E7C7DCF001856FD /* ScheduleDTO.swift */,
-				6251FB692E7C7DCF001856FD /* ScheduleGroupDTO.swift */,
-				6251FB6A2E7C7DCF001856FD /* SSLPinningDelegate.swift */,
+                                6251FB682E7C7DCF001856FD /* ScheduleDTO.swift */,
+                                6251FB6A2E7C7DCF001856FD /* SSLPinningDelegate.swift */,
 				6251FB6B2E7C7DCF001856FD /* StatusDTO.swift */,
 			);
 			path = Data;
@@ -439,7 +436,6 @@
 				AAA5C1E62E8D2F9000C533F1 /* Theme.swift in Sources */,
                             6251FBAC2E7C7DCF001856FD /* HealthService.swift in Sources */,
 				6251FBAD2E7C7DCF001856FD /* PinDTO.swift in Sources */,
-				6251FBAE2E7C7DCF001856FD /* ScheduleGroupDTO.swift in Sources */,
 				6251FBAF2E7C7DCF001856FD /* DiscoveryViewModel.swift in Sources */,
 				6251FBB02E7C7DCF001856FD /* ScheduleDraft.swift in Sources */,
 				6251FBB12E7C7DCF001856FD /* RainStatusView.swift in Sources */,

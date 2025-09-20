@@ -23,14 +23,14 @@ struct ScheduleDraft: Identifiable, Equatable {
     init(id: String = UUID().uuidString,
          name: String = "",
          startTime: String = "06:00",
-         days: [String] = [],
+         days: [String] = ScheduleDraft.defaultDays,
          isEnabled: Bool = true,
          sequence: [Step] = [],
          pins: [PinDTO] = []) {
         self.id = id
         self.name = name
         self.startTime = startTime
-        self.days = days
+        self.days = ScheduleDraft.orderedDays(from: days)
         self.isEnabled = isEnabled
         if sequence.isEmpty {
             let resolvedPins = pins.filter { $0.isEnabled ?? true }
@@ -45,7 +45,11 @@ struct ScheduleDraft: Identifiable, Equatable {
         self.id = schedule.id
         self.name = schedule.name ?? ""
         self.startTime = schedule.startTime ?? "06:00"
-        self.days = schedule.days ?? []
+        if let specifiedDays = schedule.days, !specifiedDays.isEmpty {
+            self.days = ScheduleDraft.orderedDays(from: specifiedDays)
+        } else {
+            self.days = ScheduleDraft.defaultDays
+        }
         self.isEnabled = schedule.isEnabled ?? true
         let resolvedSequence = schedule.resolvedSequence(defaultPins: pins)
         if resolvedSequence.isEmpty, let firstPin = pins.first {
@@ -69,7 +73,7 @@ struct ScheduleDraft: Identifiable, Equatable {
         return ScheduleWritePayload(name: trimmedName.isEmpty ? nil : trimmedName,
                                     durationMinutes: fallbackDuration,
                                     startTime: startTime,
-                                    days: days.isEmpty ? nil : days,
+                                    days: days.isEmpty ? nil : ScheduleDraft.orderedDays(from: days),
                                     isEnabled: isEnabled,
                                     sequence: sanitizedSequence.map { step in
                                         ScheduleWritePayload.Step(pin: step.pin,
@@ -111,6 +115,12 @@ struct ScheduleDraft: Identifiable, Equatable {
     }
 
     private static let defaultDurationMinutes = 10
+    static let defaultDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+    static func orderedDays(from days: [String]) -> [String] {
+        let lowercased = Set(days.map { $0.lowercased() })
+        return defaultDays.filter { lowercased.contains($0.lowercased()) }
+    }
 }
 
 /// Payload used when creating or updating a schedule via the controller API.
