@@ -5,6 +5,10 @@ xcuserdata/
 # Derived data / temp
 DerivedData/
 build/
+.build/
+
+# Generated AppIcon assets
+SprinklerMobile/Resources/Assets.xcassets/AppIcon.appiconset/*.png
 
 # macOS cruft
 .DS_Store

@@ -98,3 +98,13 @@ Refer to the Xcode project for the full SwiftUI implementation. When you update 
 ## Need Help?
 
 Open an issue or submit a pull request with reproducible steps and logs so we can help triage faster. Contributions that improve documentation, performance, or security are welcome.
+
+### App Icon Generation
+
+The repository intentionally excludes generated PNGs for the app icon to keep Git history small and avoid binary churn. Xcode regenerates the assets during every build via the **Generate App Icons** run script phase, which executes [`Scripts/GenerateAppIcons.swift`](Scripts/GenerateAppIcons.swift). If you need to refresh the artwork manually, run:
+
+```bash
+xcrun swift Scripts/GenerateAppIcons.swift SprinklerMobile/Resources/Assets.xcassets/AppIcon.appiconset
+```
+
+The script produces deterministic gradients and an "S" glyph so your local build matches CI output without checking binary artifacts into source control.
