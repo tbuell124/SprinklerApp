@@ -16,130 +16,162 @@ enum AppTheme {}
 
 // MARK: - Colours
 
-extension Color {
-    /// Primary canvas colour used for top-level backgrounds.
-    static let appPrimaryBackground = Color.dynamicColor(
+private enum ThemePalette {
+    static let primaryBackground = Color.dynamicColor(
         light: ThemeColorProvider.systemBackground,
         dark: Color.makeColor(18, 18, 21),
         highContrastLight: Color.makeColor(242, 242, 247),
         highContrastDark: Color.makeColor(5, 5, 8)
     )
 
-    /// Secondary surface that provides gentle contrast for grouped content.
-    static let appSecondaryBackground = Color.dynamicColor(
+    static let secondaryBackground = Color.dynamicColor(
         light: ThemeColorProvider.secondaryBackground,
         dark: Color.makeColor(30, 31, 38),
         highContrastLight: Color.makeColor(226, 228, 235),
         highContrastDark: Color.makeColor(12, 12, 16)
     )
 
-    /// Elevated background applied to cards.
-    static let appCardBackground = Color.dynamicColor(
+    static let cardBackground = Color.dynamicColor(
         light: Color.makeColor(250, 250, 252),
         dark: Color.makeColor(28, 29, 36),
         highContrastLight: Color.makeColor(255, 255, 255),
         highContrastDark: Color.makeColor(18, 18, 24)
     )
 
-    /// Highlight colour for elevated card gradients.
-    static let appCardBackgroundElevated = Color.dynamicColor(
+    static let cardBackgroundElevated = Color.dynamicColor(
         light: Color.makeColor(236, 239, 255),
         dark: Color.makeColor(36, 39, 50),
         highContrastLight: Color.makeColor(224, 229, 255),
         highContrastDark: Color.makeColor(28, 32, 42)
     )
 
-    /// Stroke applied to cards for high-contrast outlines.
-    static let appCardStroke = Color.dynamicColor(
+    static let cardStroke = Color.dynamicColor(
         light: Color.makeColor(204, 208, 222),
         dark: Color.makeColor(68, 72, 84),
         highContrastLight: Color.makeColor(116, 120, 134),
         highContrastDark: Color.makeColor(132, 138, 150)
     )
 
-    /// Separator colour used for dividers.
-    static let appSeparator = Color.dynamicColor(
+    static let separator = Color.dynamicColor(
         light: ThemeColorProvider.separator,
         dark: Color.makeColor(80, 82, 90),
         highContrastLight: Color.makeColor(86, 88, 96),
         highContrastDark: Color.makeColor(156, 158, 166)
     )
 
-    /// Primary accent colour with sufficient contrast in light and dark modes.
-    static let appAccentPrimary = Color.dynamicColor(
+    static let accentPrimary = Color.dynamicColor(
         light: Color.makeColor(0, 98, 204),
         dark: Color.makeColor(93, 182, 255),
         highContrastLight: Color.makeColor(0, 71, 148),
         highContrastDark: Color.makeColor(142, 210, 255)
     )
 
-    /// Secondary accent for complementary highlights.
-    static let appAccentSecondary = Color.dynamicColor(
+    static let accentSecondary = Color.dynamicColor(
         light: Color.makeColor(118, 53, 220),
         dark: Color.makeColor(171, 135, 255),
         highContrastLight: Color.makeColor(94, 34, 181),
         highContrastDark: Color.makeColor(195, 164, 255)
     )
 
-    /// Success colour for positive states and confirmations.
-    static let appSuccess = Color.dynamicColor(
+    static let success = Color.dynamicColor(
         light: Color.makeColor(12, 140, 64),
         dark: Color.makeColor(84, 217, 130),
         highContrastLight: Color.makeColor(0, 94, 46),
         highContrastDark: Color.makeColor(142, 255, 176)
     )
 
-    /// Warning colour for cautionary messaging.
-    static let appWarning = Color.dynamicColor(
+    static let warning = Color.dynamicColor(
         light: Color.makeColor(206, 129, 18),
         dark: Color.makeColor(250, 189, 92),
         highContrastLight: Color.makeColor(161, 93, 0),
         highContrastDark: Color.makeColor(255, 206, 120)
     )
 
-    /// Error colour for critical alerts.
-    static let appDanger = Color.dynamicColor(
+    static let danger = Color.dynamicColor(
         light: Color.makeColor(204, 43, 62),
         dark: Color.makeColor(255, 114, 136),
         highContrastLight: Color.makeColor(156, 22, 39),
         highContrastDark: Color.makeColor(255, 146, 164)
     )
 
-    /// Informational blue for neutral messaging.
-    static let appInfo = Color.dynamicColor(
+    static let info = Color.dynamicColor(
         light: Color.makeColor(0, 116, 191),
         dark: Color.makeColor(101, 190, 255),
         highContrastLight: Color.makeColor(0, 82, 134),
         highContrastDark: Color.makeColor(149, 214, 255)
     )
 
-    /// Ambient shadow colour tuned for translucency.
-    static let appShadow = Color.dynamicColor(
+    static let shadow = Color.dynamicColor(
         light: Color.makeColor(15, 18, 31, alpha: 0.35),
         dark: Color.makeColor(0, 0, 0, alpha: 0.7),
         highContrastLight: Color.makeColor(6, 7, 12, alpha: 0.45),
         highContrastDark: Color.makeColor(0, 0, 0, alpha: 0.8)
     )
 
-    /// Top colour used when constructing canvas gradients.
-    static let appCanvasTop = Color.dynamicColor(
+    static let canvasTop = Color.dynamicColor(
         light: Color.makeColor(245, 247, 255),
         dark: Color.makeColor(18, 19, 24),
         highContrastLight: Color.makeColor(250, 250, 255),
         highContrastDark: Color.makeColor(8, 8, 12)
     )
 
-    /// Bottom colour used when constructing canvas gradients.
-    static let appCanvasBottom = Color.dynamicColor(
+    static let canvasBottom = Color.dynamicColor(
         light: Color.makeColor(230, 235, 255),
         dark: Color.makeColor(8, 8, 12),
         highContrastLight: Color.makeColor(236, 240, 255),
         highContrastDark: Color.makeColor(2, 2, 6)
     )
+}
+
+extension Color {
+    /// Primary canvas colour used for top-level backgrounds.
+    static var appPrimaryBackground: Color { ThemePalette.primaryBackground }
+
+    /// Secondary surface that provides gentle contrast for grouped content.
+    static var appSecondaryBackground: Color { ThemePalette.secondaryBackground }
+
+    /// Elevated background applied to cards.
+    static var appCardBackground: Color { ThemePalette.cardBackground }
+
+    /// Highlight colour for elevated card gradients.
+    static var appCardBackgroundElevated: Color { ThemePalette.cardBackgroundElevated }
+
+    /// Stroke applied to cards for high-contrast outlines.
+    static var appCardStroke: Color { ThemePalette.cardStroke }
+
+    /// Separator colour used for dividers.
+    static var appSeparator: Color { ThemePalette.separator }
+
+    /// Primary accent colour with sufficient contrast in light and dark modes.
+    static var appAccentPrimary: Color { ThemePalette.accentPrimary }
+
+    /// Secondary accent for complementary highlights.
+    static var appAccentSecondary: Color { ThemePalette.accentSecondary }
+
+    /// Success colour for positive states and confirmations.
+    static var appSuccess: Color { ThemePalette.success }
+
+    /// Warning colour for cautionary messaging.
+    static var appWarning: Color { ThemePalette.warning }
+
+    /// Error colour for critical alerts.
+    static var appDanger: Color { ThemePalette.danger }
+
+    /// Informational blue for neutral messaging.
+    static var appInfo: Color { ThemePalette.info }
+
+    /// Ambient shadow colour tuned for translucency.
+    static var appShadow: Color { ThemePalette.shadow }
+
+    /// Top colour used when constructing canvas gradients.
+    static var appCanvasTop: Color { ThemePalette.canvasTop }
+
+    /// Bottom colour used when constructing canvas gradients.
+    static var appCanvasBottom: Color { ThemePalette.canvasBottom }
 
     /// Legacy alias maintained for backwards compatibility while the codebase migrates to the
     /// new naming scheme introduced with the refreshed theme.
-    static var appBackground: Color { appPrimaryBackground }
+    static var appBackground: Color { ThemePalette.primaryBackground }
 }
 
 extension LinearGradient {

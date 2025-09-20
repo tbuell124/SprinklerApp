@@ -21,8 +21,8 @@ extension ConnectivityState {
         switch self {
         case .connected:
             return "The controller is reachable on your network."
-        case let .offline(description):
-            return description ?? "Tap Run Health Check to troubleshoot the connection."
+        case .offline:
+            return errorDescription ?? "Tap Run Health Check to troubleshoot the connection."
         }
     }
 

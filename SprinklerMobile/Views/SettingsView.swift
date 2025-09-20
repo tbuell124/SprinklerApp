@@ -103,8 +103,8 @@ struct SettingsView: View {
         switch store.state {
         case .connected:
             return nil
-        case let .offline(message):
-            return message
+        case .offline:
+            return store.state.errorDescription
         }
     }
 
