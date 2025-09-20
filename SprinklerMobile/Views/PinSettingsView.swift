@@ -68,14 +68,17 @@ struct PinSettingsView: View {
     }
 
     private func pinRow(for pin: PinDTO) -> some View {
-        let nameBinding = Binding<String>(
-            get: { nameDrafts[pin.id] ?? pin.name ?? "" },
-            set: { newValue in nameDrafts[pin.id] = newValue }
-        )
-
-        let enabledBinding = Binding<Bool>(
-            get: { pin.isEnabled ?? true },
-            set: { newValue in
+        PinRowView(
+            pin: pin,
+            nameDraft: nameDrafts[pin.id] ?? pin.name ?? "",
+            focusedField: $focusedField,
+            onNameChange: { newName in
+                nameDrafts[pin.id] = newName
+            },
+            onSubmit: {
+                persistDraft(for: pin.id)
+            },
+            onToggle: { newValue in
                 guard let currentPin = store.pins.first(where: { $0.id == pin.id }) else { return }
                 persistDraft(for: pin.id)
                 if newValue {
@@ -86,34 +89,6 @@ struct PinSettingsView: View {
                 }
             }
         )
-
-        return VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 6) {
-                    TextField("Zone name", text: nameBinding)
-                        .textInputAutocapitalization(.words)
-                        .disableAutocorrection(true)
-                        .submitLabel(.done)
-                        .focused($focusedField, equals: pin.id)
-                        .onSubmit { persistDraft(for: pin.id) }
-                        .accessibilityLabel("Name for GPIO \(pin.pin)")
-                        .accessibilityHint("Enter a friendly name for this sprinkler zone.")
-
-                    Text("GPIO \(pin.pin)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                Toggle(isOn: enabledBinding) {
-                    Text("Active")
-                        .font(.subheadline.weight(.semibold))
-                }
-                .toggleStyle(.switch)
-                .accessibilityLabel("Active state for \(pin.displayName)")
-                .accessibilityHint("Deactivate to hide this pin from the dashboard and schedules.")
-            }
-        }
-        .padding(.vertical, 6)
     }
 
     private func syncDrafts(force: Bool) {
@@ -136,5 +111,58 @@ struct PinSettingsView: View {
         for pin in store.pins {
             persistDraft(for: pin.id)
         }
+    }
+}
+
+private struct PinRowView: View {
+    let pin: PinDTO
+    let nameDraft: String
+    let focusedField: FocusState<Int?>.Binding
+    let onNameChange: (String) -> Void
+    let onSubmit: () -> Void
+    let onToggle: (Bool) -> Void
+    
+    private var nameBinding: Binding<String> {
+        Binding(
+            get: { nameDraft },
+            set: onNameChange
+        )
+    }
+    
+    private var enabledBinding: Binding<Bool> {
+        Binding(
+            get: { pin.isEnabled ?? true },
+            set: onToggle
+        )
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    TextField("Zone name", text: nameBinding)
+                        .textInputAutocapitalization(.words)
+                        .disableAutocorrection(true)
+                        .submitLabel(.done)
+                        .focused(focusedField, equals: pin.id)
+                        .onSubmit(onSubmit)
+                        .accessibilityLabel("Name for GPIO \(pin.pin)")
+                        .accessibilityHint("Enter a friendly name for this sprinkler zone.")
+
+                    Text("GPIO \(pin.pin)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Toggle(isOn: enabledBinding) {
+                    Text("Active")
+                        .font(.subheadline.weight(.semibold))
+                }
+                .toggleStyle(.switch)
+                .accessibilityLabel("Active state for \(pin.displayName)")
+                .accessibilityHint("Deactivate to hide this pin from the dashboard and schedules.")
+            }
+        }
+        .padding(.vertical, 6)
     }
 }
