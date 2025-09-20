@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct ScheduleRowView: View {
-    @EnvironmentObject private var store: SprinklerStore
     let schedule: Schedule
 
     var body: some View {

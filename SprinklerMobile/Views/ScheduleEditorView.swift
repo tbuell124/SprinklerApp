@@ -2,31 +2,11 @@ import SwiftUI
 
 struct ScheduleEditorView: View {
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var store: SprinklerStore
     @State private var draft: ScheduleDraft
     @State private var timeSelection: Date
     let onSave: (ScheduleDraft) -> Void
 
     private let dayOptions = Schedule.defaultDays
-
-    private var pinsByNumber: [Int: PinDTO] {
-        Dictionary(uniqueKeysWithValues: store.pins.map { ($0.pin, $0) })
-    }
-
-    private var activePins: [PinDTO] {
-        store.activePins
-    }
-
-    private var missingActivePins: [PinDTO] {
-        let assignedPins = Set(draft.sequence.map(\.pin))
-        return activePins.filter { !assignedPins.contains($0.pin) }
-    }
-
-    private var inactiveSteps: [ScheduleDraft.Step] {
-        draft.sequence.filter { step in
-            !(pinsByNumber[step.pin]?.isEnabled ?? true)
-        }
-    }
 
     init(draft: ScheduleDraft, onSave: @escaping (ScheduleDraft) -> Void) {
         var workingDraft = draft
@@ -42,7 +22,6 @@ struct ScheduleEditorView: View {
             Form {
                 detailsSection
                 daysSection
-                sequenceSection
             }
             .navigationTitle("Schedule")
             .toolbar {
@@ -56,11 +35,6 @@ struct ScheduleEditorView: View {
                     }
                     .disabled(!isDraftSavable)
                 }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    if !draft.sequence.isEmpty {
-                        EditButton()
-                    }
-                }
             }
             .onChange(of: timeSelection, initial: false) { _, newValue in
                 draft.startTime = ScheduleEditorView.timeString(from: newValue)
@@ -73,10 +47,13 @@ struct ScheduleEditorView: View {
             TextField("Name", text: $draft.name)
                 .id("schedule-name-\(draft.id)")
                 .keyboardType(.default)
-            LabeledContent("Run Time") {
-                Text("\(totalRuntimeMinutes) min")
-                    .font(.body.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                .autocorrectionDisabled()
+            LabeledContent("Run Time (min)") {
+                TextField("0", value: $draft.runTimeMinutes, format: .number)
+                    .keyboardType(.numberPad)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .multilineTextAlignment(.trailing)
             }
             DatePicker("Start Time",
                        selection: $timeSelection,
@@ -96,62 +73,9 @@ struct ScheduleEditorView: View {
         }
     }
 
-    private var sequenceSection: some View {
-        Section("Sequence") {
-            if draft.sequence.isEmpty {
-                Text("Add zones to control the watering order.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } else {
-                ForEach(Array(draft.sequence.enumerated()), id: \.element.id) { index, step in
-                    let binding = Binding(
-                        get: { draft.sequence[index] },
-                        set: { draft.sequence[index] = $0 }
-                    )
-                    ScheduleSequenceRow(step: binding,
-                                        pin: pinsByNumber[step.pin],
-                                        isPinEnabled: pinsByNumber[step.pin]?.isEnabled ?? true) {
-                        draft.removeSteps(at: IndexSet(integer: index))
-                    }
-                }
-                .onDelete { offsets in
-                    draft.removeSteps(at: offsets)
-                }
-                .onMove { offsets, newOffset in
-                    draft.moveSteps(from: offsets, to: newOffset)
-                }
-            }
-
-            if !missingActivePins.isEmpty {
-                Button {
-                    draft.addSteps(for: missingActivePins)
-                } label: {
-                    Label("Add All Active Pins", systemImage: "plus.circle.fill")
-                }
-
-                Menu {
-                    ForEach(missingActivePins) { pin in
-                        Button(pin.name ?? "Pin \(pin.pin)") {
-                            draft.addStep(for: pin)
-                        }
-                    }
-                } label: {
-                    Label("Add Pin", systemImage: "plus")
-                }
-            }
-
-            if !inactiveSteps.isEmpty {
-                Label("Inactive pins remain in this schedule", systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption2)
-                    .foregroundStyle(.orange)
-                    .accessibilityHint("Enable the pin from the Zones screen to run it in this schedule")
-            }
-        }
-    }
-
     private var isDraftSavable: Bool {
         let trimmedName = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
-        return !trimmedName.isEmpty && !draft.sequence.isEmpty && !draft.days.isEmpty
+        return !trimmedName.isEmpty && draft.runTimeMinutes > 0 && !draft.days.isEmpty
     }
 
     private func toggle(day: String) {
@@ -185,12 +109,6 @@ struct ScheduleEditorView: View {
     private static var defaultTime: Date {
         Calendar.current.date(bySettingHour: 6, minute: 0, second: 0, of: Date()) ?? Date()
     }
-
-    private var totalRuntimeMinutes: Int {
-        draft.sequence.reduce(0) { partialResult, step in
-            partialResult + max(step.durationMinutes, 0)
-        }
-    }
 }
 
 private struct MultipleSelectionRow: View {
@@ -210,46 +128,5 @@ private struct MultipleSelectionRow: View {
             }
         }
         .buttonStyle(.plain)
-    }
-}
-
-private struct ScheduleSequenceRow: View {
-    @Binding var step: ScheduleDraft.Step
-    let pin: PinDTO?
-    let isPinEnabled: Bool
-    let onDelete: () -> Void
-
-    private var pinName: String {
-        pin?.name ?? "Pin \(step.pin)"
-    }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(pinName)
-                    .font(.body)
-                Text("GPIO \(step.pin)")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                if !isPinEnabled {
-                    Label("Pin disabled", systemImage: "slash.circle")
-                        .font(.caption2)
-                        .foregroundStyle(.orange)
-                }
-            }
-            Spacer()
-            Stepper(value: $step.durationMinutes, in: 0...240) {
-                Text("\(step.durationMinutes) min")
-                    .font(.body.monospacedDigit())
-            }
-            .accessibilityLabel(Text("Duration for \(pinName)"))
-        }
-        .contentShape(Rectangle())
-        .opacity(isPinEnabled ? 1 : 0.5)
-        .swipeActions(edge: .trailing) {
-            Button(role: .destructive, action: onDelete) {
-                Label("Remove", systemImage: "trash")
-            }
-        }
     }
 }

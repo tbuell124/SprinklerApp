@@ -5,18 +5,13 @@ import Foundation
 /// available. The struct purposefully mirrors the controller payload so the same
 /// value can be encoded to JSON for offline storage or REST payloads.
 struct Schedule: Identifiable, Codable, Hashable {
-    /// Describes a single step in a watering sequence.
-    struct Step: Codable, Hashable {
-        var pin: Int
-        var durationMinutes: Int
-    }
-
     var id: String
     var name: String
+    /// Total runtime for the schedule measured in whole minutes.
+    var runTimeMinutes: Int
     var startTime: String
     var days: [String]
     var isEnabled: Bool
-    var sequence: [Step]
     /// Last time the schedule was modified locally.
     var lastModified: Date
     /// Timestamp of the last successful controller sync. `nil` means the
@@ -25,27 +20,25 @@ struct Schedule: Identifiable, Codable, Hashable {
 
     init(id: String = UUID().uuidString,
          name: String = "",
+         runTimeMinutes: Int = Schedule.defaultDurationMinutes,
          startTime: String = Schedule.defaultStartTime,
          days: [String] = Schedule.defaultDays,
          isEnabled: Bool = true,
-         sequence: [Step] = [],
          lastModified: Date = Date(),
          lastSyncedAt: Date? = nil) {
         self.id = id
         self.name = name
+        self.runTimeMinutes = max(runTimeMinutes, 0)
         self.startTime = startTime
         self.days = Schedule.orderedDays(from: days)
         self.isEnabled = isEnabled
-        self.sequence = sequence
         self.lastModified = lastModified
         self.lastSyncedAt = lastSyncedAt
     }
 
-    /// Returns the total runtime for the schedule by summing every sequence step.
+    /// Returns the total runtime for the schedule.
     var totalDurationMinutes: Int {
-        sequence.reduce(into: 0) { partialResult, step in
-            partialResult += max(step.durationMinutes, 0)
-        }
+        max(runTimeMinutes, 0)
     }
 
     /// Indicates whether local changes still need to be synchronised to the controller.
@@ -68,17 +61,12 @@ struct Schedule: Identifiable, Codable, Hashable {
 
     /// Returns a write payload compatible with the existing controller API.
     func writePayload() -> ScheduleWritePayload {
-        let normalisedSequence = sequence.map { step in
-            ScheduleWritePayload.Step(pin: step.pin,
-                                       durationMinutes: max(step.durationMinutes, 0))
-        }
-        let fallbackDuration = normalisedSequence.first?.durationMinutes ?? Schedule.defaultDurationMinutes
+        let sanitizedDuration = max(runTimeMinutes, 0)
         return ScheduleWritePayload(name: sanitizedName,
-                                    durationMinutes: fallbackDuration,
+                                    durationMinutes: sanitizedDuration,
                                     startTime: startTime,
                                     days: days.isEmpty ? nil : Schedule.orderedDays(from: days),
-                                    isEnabled: isEnabled,
-                                    sequence: normalisedSequence)
+                                    isEnabled: isEnabled)
     }
 }
 
@@ -92,15 +80,14 @@ extension Schedule {
     /// Creates a persisted schedule from the controller DTO. Any controller-provided
     /// data is considered authoritative, so both `lastModified` and `lastSyncedAt`
     /// are stamped with the time of decoding.
-    init(dto: ScheduleDTO, defaultPins: [PinDTO]) {
-        let resolvedSequence = dto.resolvedSequence(defaultPins: defaultPins)
+    init(dto: ScheduleDTO, defaultPins _: [PinDTO]) {
         let now = Date()
         self.init(id: dto.id,
                   name: dto.name ?? "",
+                  runTimeMinutes: dto.resolvedRunTimeMinutes(),
                   startTime: dto.startTime ?? Schedule.defaultStartTime,
                   days: dto.days ?? Schedule.defaultDays,
                   isEnabled: dto.isEnabled ?? true,
-                  sequence: resolvedSequence.map { Step(pin: $0.pin, durationMinutes: $0.durationMinutes) },
                   lastModified: now,
                   lastSyncedAt: now)
     }
@@ -110,13 +97,10 @@ extension Schedule {
     func dto() -> ScheduleDTO {
         ScheduleDTO(id: id,
                     name: sanitizedName,
+                    runTimeMinutes: totalDurationMinutes,
                     startTime: startTime,
                     days: days,
-                    isEnabled: isEnabled,
-                    durationMinutes: sequence.first?.durationMinutes,
-                    sequence: sequence.map { step in
-                        ScheduleSequenceItemDTO(pin: step.pin, durationMinutes: step.durationMinutes)
-                    })
+                    isEnabled: isEnabled)
     }
 }
 
