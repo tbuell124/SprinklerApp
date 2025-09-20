@@ -4,9 +4,6 @@ struct SchedulesView: View {
     @EnvironmentObject private var store: SprinklerStore
     @State private var editingDraft: ScheduleDraft?
     @State private var isPresentingEditor = false
-    @State private var isAddingGroup = false
-    @State private var newGroupName: String = ""
-    @State private var isLoadingGroups = false
 
     private var toastBinding: Binding<ToastState?> {
         Binding(get: { store.toast }, set: { store.toast = $0 })
@@ -61,51 +58,6 @@ struct SchedulesView: View {
                     }
                 }
 
-                if isLoadingGroups || !store.scheduleGroups.isEmpty || isAddingGroup {
-                    Section("Groups") {
-                        if isLoadingGroups {
-                            ForEach(0..<2, id: \.self) { _ in
-                                ScheduleGroupSkeleton()
-                            }
-                        } else {
-                            ForEach(store.scheduleGroups) { group in
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text(group.name ?? "Group")
-                                        .font(.headline)
-                                    LazyHStack(spacing: 12) {
-                                        Button("Select") {
-                                            store.selectScheduleGroup(id: group.id)
-                                        }
-                                        Button("Add All") {
-                                            store.addAllToGroup(id: group.id)
-                                        }
-                                        Button(role: .destructive) {
-                                            store.deleteScheduleGroup(id: group.id)
-                                        } label: {
-                                            Label("Delete", systemImage: "trash")
-                                        }
-                                    }
-                                    .buttonStyle(.borderless)
-                                }
-                                .padding(.vertical, 4)
-                            }
-                        }
-                    }
-                }
-
-                if isAddingGroup {
-                    Section("New Group") {
-                        TextField("Group name", text: $newGroupName)
-                            .id("schedule-new-group-name")
-                        Button("Create") {
-                            let trimmed = newGroupName.trimmingCharacters(in: .whitespacesAndNewlines)
-                            guard !trimmed.isEmpty else { return }
-                            store.createScheduleGroup(name: trimmed)
-                            newGroupName = ""
-                            withAnimation { isAddingGroup = false }
-                        }
-                    }
-                }
             }
             .listStyle(.insetGrouped)
             .navigationTitle("Schedules")
@@ -121,16 +73,6 @@ struct SchedulesView: View {
                         Image(systemName: "plus")
                     }
                 }
-                ToolbarItemGroup(placement: .bottomBar) {
-                    Button(isAddingGroup ? "Cancel" : "New Group") {
-                        withAnimation {
-                            isAddingGroup.toggle()
-                        }
-                        if !isAddingGroup {
-                            newGroupName = ""
-                        }
-                    }
-                }
             }
             .sheet(isPresented: $isPresentingEditor, onDismiss: { editingDraft = nil }) {
                 if let draft = editingDraft {
@@ -138,11 +80,6 @@ struct SchedulesView: View {
                         store.upsertSchedule(updated)
                     }
                 }
-            }
-            .task {
-                isLoadingGroups = true
-                defer { isLoadingGroups = false }
-                await store.loadScheduleGroups()
             }
         }
         .toast(state: toastBinding)

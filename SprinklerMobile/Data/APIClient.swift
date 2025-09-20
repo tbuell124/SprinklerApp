@@ -134,39 +134,6 @@ actor APIClient {
         _ = try await perform(endpoint)
     }
 
-    func fetchScheduleGroups() async throws -> [ScheduleGroupDTO] {
-        try await perform(.init(path: "/api/schedule-groups"))
-    }
-
-    func createScheduleGroup(name: String) async throws {
-        struct GroupPayload: Encodable { let name: String }
-        let endpoint = Endpoint<EmptyResponse>(path: "/api/schedule-groups",
-                                               method: .post,
-                                               body: AnyEncodable(GroupPayload(name: name)))
-        _ = try await perform(endpoint)
-    }
-
-    func selectScheduleGroup(id: String) async throws {
-        struct SelectPayload: Encodable { let id: String }
-        let endpoint = Endpoint<EmptyResponse>(path: "/api/schedule-groups/select",
-                                               method: .post,
-                                               body: AnyEncodable(SelectPayload(id: id)))
-        _ = try await perform(endpoint)
-    }
-
-    func addAllToGroup(id: String) async throws {
-        let endpoint = Endpoint<EmptyResponse>(path: "/api/schedule-groups/\(id)/add-all",
-                                               method: .post,
-                                               fallbackToEmptyBody: true)
-        _ = try await perform(endpoint)
-    }
-
-    func deleteScheduleGroup(id: String) async throws {
-        let endpoint = Endpoint<EmptyResponse>(path: "/api/schedule-groups/\(id)",
-                                               method: .delete)
-        _ = try await perform(endpoint)
-    }
-
     private func perform<Response>(_ endpoint: Endpoint<Response>) async throws -> Response {
         guard let baseURL else { throw APIError.invalidURL }
         return try await httpClient.request(endpoint, baseURL: baseURL)

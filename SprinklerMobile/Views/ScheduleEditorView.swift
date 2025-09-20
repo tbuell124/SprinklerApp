@@ -72,6 +72,11 @@ struct ScheduleEditorView: View {
         Section("Details") {
             TextField("Name", text: $draft.name)
                 .id("schedule-name-\(draft.id)")
+            LabeledContent("Run Time") {
+                Text("\(totalRuntimeMinutes) min")
+                    .font(.body.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
             DatePicker("Start Time",
                        selection: $timeSelection,
                        displayedComponents: .hourAndMinute)
@@ -145,15 +150,17 @@ struct ScheduleEditorView: View {
 
     private var isDraftSavable: Bool {
         let trimmedName = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
-        return !trimmedName.isEmpty && !draft.sequence.isEmpty
+        return !trimmedName.isEmpty && !draft.sequence.isEmpty && !draft.days.isEmpty
     }
 
     private func toggle(day: String) {
-        if draft.days.contains(day) {
-            draft.days.removeAll { $0 == day }
+        let normalizedDay = day.lowercased()
+        if draft.days.contains(where: { $0.lowercased() == normalizedDay }) {
+            draft.days.removeAll { $0.lowercased() == normalizedDay }
         } else {
             draft.days.append(day)
         }
+        draft.days = ScheduleDraft.orderedDays(from: draft.days)
     }
 
     private static func date(from timeString: String) -> Date? {
@@ -176,6 +183,12 @@ struct ScheduleEditorView: View {
 
     private static var defaultTime: Date {
         Calendar.current.date(bySettingHour: 6, minute: 0, second: 0, of: Date()) ?? Date()
+    }
+
+    private var totalRuntimeMinutes: Int {
+        draft.sequence.reduce(0) { partialResult, step in
+            partialResult + max(step.durationMinutes, 0)
+        }
     }
 }
 

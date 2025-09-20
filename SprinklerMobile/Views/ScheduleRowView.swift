@@ -19,18 +19,11 @@ struct ScheduleRowView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                if let days = schedule.days, !days.isEmpty {
-                    Label(days.joined(separator: ", "), systemImage: "calendar")
+                if let daysText = daysLabelText {
+                    Label(daysText, systemImage: "calendar")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
-                }
-                if let sequenceText = sequenceSummaryText {
-                    Label(sequenceText, systemImage: "list.bullet")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
                 }
             }
         }
@@ -43,21 +36,17 @@ struct ScheduleRowView: View {
         return "\(totalDuration) min"
     }
 
-    private var sequenceSummaryText: String? {
-        let sequence = schedule.resolvedSequence(defaultPins: store.pins)
-        guard !sequence.isEmpty else { return nil }
-
-        let pinLookup = Dictionary(uniqueKeysWithValues: store.pins.map { ($0.pin, $0) })
-        let segments = sequence.map { item -> String in
-            let pinName = pinLookup[item.pin]?.name ?? "Pin \(item.pin)"
-            return "\(pinName) – \(item.durationMinutes)m"
+    private var daysLabelText: String? {
+        guard let days = schedule.days, !days.isEmpty else {
+            return "Daily"
         }
 
-        if segments.count <= 3 {
-            return segments.joined(separator: ", ")
+        let normalized = days.map { $0.lowercased() }
+        let fullWeek = Set(ScheduleDraft.defaultDays.map { $0.lowercased() })
+        if Set(normalized) == fullWeek {
+            return "Daily"
         }
 
-        let prefix = segments.prefix(3).joined(separator: ", ")
-        return prefix + ", …"
+        return ScheduleDraft.orderedDays(from: days).joined(separator: ", ")
     }
 }

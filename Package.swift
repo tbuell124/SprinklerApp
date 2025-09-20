@@ -28,7 +28,6 @@ let package = Package(
                 "Views",
                 "SprinklerMobileApp.swift",
                 "Stores/SprinklerStore.swift",
-                "Data/ScheduleGroupDTO.swift",
                 "Data/APIClient.swift",
                 "Utils/Color+Theme.swift",
                 "Utils/Theme.swift",
