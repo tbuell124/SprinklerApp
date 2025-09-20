@@ -75,9 +75,21 @@ actor APIClient {
         _ = try await perform(endpoint)
     }
 
-    func setPin(_ pin: Int, on: Bool) async throws {
+    func setPin(_ pin: Int, on: Bool, minutes: Int? = nil) async throws {
+        struct StartPinPayload: Encodable {
+            let minutes: Int
+        }
+
+        let body: AnyEncodable?
+        if on, let minutes {
+            body = AnyEncodable(StartPinPayload(minutes: minutes))
+        } else {
+            body = nil
+        }
+
         let endpoint = Endpoint<EmptyResponse>(path: "/api/pin/\(pin)/\(on ? "on" : "off")",
                                                method: .post,
+                                               body: body,
                                                fallbackToEmptyBody: true)
         _ = try await perform(endpoint)
     }
