@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import pigpio
-from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi import Body, Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
@@ -734,9 +734,12 @@ async def api_pins_compat():
 
 
 @app.post("/api/pin/{pin}/on", dependencies=[Depends(require_token)])
-async def api_pin_on_compat(pin: int):
+async def api_pin_on_compat(
+    pin: int,
+    payload: StartZoneRequest = Body(default=StartZoneRequest()),
+):
     zone = _zone_for_pin(pin)
-    return await start_zone(zone, StartZoneRequest(minutes=DEFAULT_RUNTIME_MINUTES))  # type: ignore[arg-type]
+    return await start_zone(zone, payload)  # type: ignore[arg-type]
 
 
 @app.post("/api/pin/{pin}/off", dependencies=[Depends(require_token)])

@@ -22,7 +22,7 @@ The authenticated FastAPI backend now exposes a RESTful surface that matches the
 | `POST` | `/zone/on/{zone}` | Starts a zone immediately for the supplied minutes. |
 | `POST` | `/zone/off/{zone}` | Stops a running zone. |
 
-The legacy compatibility routes (`/status`, `/api/pins`, `/api/pin/{pin}`) remain available so older builds keep working during rollout.
+The legacy compatibility routes (`/status`, `/api/pins`, `/api/pin/{pin}`) remain available so older builds keep working during rollout. When using `POST /api/pin/{pin}/on` you can provide an optional JSON payload such as `{"minutes": 10}` to request a specific runtime; omitting the body preserves the default 30-minute duration.
 
 Schedules persist to `/srv/sprinkler-controller/state/schedules.json` and are replayed automatically on the Raspberry Pi. Each schedule triggers at its configured start time on matching weekdays, drives the referenced GPIO pins sequentially, and respects active rain delays so you never water during a manual lockout.
 

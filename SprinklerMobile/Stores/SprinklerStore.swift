@@ -363,6 +363,10 @@ final class SprinklerStore: ObservableObject {
             showToast(message: "Enter a duration greater than zero.", style: .error)
             return
         }
+        guard sanitizedMinutes <= 12 * 60 else {
+            showToast(message: "Duration is too long.", style: .error)
+            return
+        }
         guard let index = pins.firstIndex(where: { $0.id == pin.id }) else { return }
         if pins[index].isActive ?? false {
             showToast(message: "\(pin.displayName) is already running.", style: .error)
@@ -371,20 +375,6 @@ final class SprinklerStore: ObservableObject {
 
         let previouslyActive = pins[index].isActive ?? false
         pins[index].isActive = true
-
-        let (seconds, secondsOverflow) = sanitizedMinutes.multipliedReportingOverflow(by: 60)
-        if secondsOverflow {
-            pins[index].isActive = previouslyActive
-            showToast(message: "Duration is too long.", style: .error)
-            return
-        }
-
-        let (nanoseconds, nanoOverflow) = UInt64(seconds).multipliedReportingOverflow(by: 1_000_000_000)
-        if nanoOverflow {
-            pins[index].isActive = previouslyActive
-            showToast(message: "Duration is too long.", style: .error)
-            return
-        }
 
         let operation = PendingOperation(kind: .timedPinRun(pin: pin.pin,
                                                             durationMinutes: sanitizedMinutes,
@@ -402,50 +392,11 @@ final class SprinklerStore: ObservableObject {
         Task { [weak self] in
             guard let self else { return }
             do {
-                try await self.client.setPin(pin.pin, on: true)
+                try await self.client.setPin(pin.pin, on: true, minutes: sanitizedMinutes)
+                await self.refresh()
                 await MainActor.run {
                     self.showToast(message: "Started \(pin.displayName) for \(sanitizedMinutes) minutes", style: .success)
                 }
-            } catch let error as APIError {
-                await MainActor.run {
-                    if case .unreachable = error {
-                        if let revertIndex = self.pins.firstIndex(where: { $0.id == pin.id }) {
-                            self.pins[revertIndex].isActive = previouslyActive
-                        }
-                        self.connectionStatus = .unreachable(error.localizedDescription)
-                        self.recordConnectionFailure(error)
-                        self.enqueuePendingOperation(operation, notice: nil, forceNotice: true)
-                        self.showToast(message: offlineMessage, style: .info)
-                        return
-                    }
-
-                    if let revertIndex = self.pins.firstIndex(where: { $0.id == pin.id }) {
-                        self.pins[revertIndex].isActive = previouslyActive
-                    }
-                    self.connectionErrorMessage = error.localizedDescription
-                    self.showToast(message: self.toastMessage(for: error, defaultMessage: "Failed to start \(pin.displayName)"),
-                                   style: .error)
-                }
-                return
-            } catch {
-                await MainActor.run {
-                    if let revertIndex = self.pins.firstIndex(where: { $0.id == pin.id }) {
-                        self.pins[revertIndex].isActive = previouslyActive
-                    }
-                    self.connectionErrorMessage = APIError.invalidResponse.localizedDescription
-                    self.showToast(message: "Failed to start \(pin.displayName)", style: .error)
-                }
-                return
-            }
-
-            do {
-                try await Task.sleep(nanoseconds: nanoseconds)
-            } catch {
-                // Cancellation simply accelerates the shutdown path below.
-            }
-
-            do {
-                try await self.client.setPin(pin.pin, on: false)
             } catch let error as APIError {
                 await MainActor.run {
                     if let revertIndex = self.pins.firstIndex(where: { $0.id == pin.id }) {
@@ -458,24 +409,18 @@ final class SprinklerStore: ObservableObject {
                         self.showToast(message: offlineMessage, style: .info)
                     } else {
                         self.connectionErrorMessage = error.localizedDescription
-                        self.showToast(message: "Unable to stop \(pin.displayName). Verify the controller state.", style: .error)
+                        self.showToast(message: self.toastMessage(for: error,
+                                                                   defaultMessage: "Failed to start \(pin.displayName)"),
+                                       style: .error)
                     }
                 }
-                return
             } catch {
                 await MainActor.run {
                     if let revertIndex = self.pins.firstIndex(where: { $0.id == pin.id }) {
                         self.pins[revertIndex].isActive = previouslyActive
                     }
                     self.connectionErrorMessage = APIError.invalidResponse.localizedDescription
-                    self.showToast(message: "Unable to stop \(pin.displayName). Verify the controller state.", style: .error)
-                }
-                return
-            }
-
-            await MainActor.run {
-                if let revertIndex = self.pins.firstIndex(where: { $0.id == pin.id }) {
-                    self.pins[revertIndex].isActive = previouslyActive
+                    self.showToast(message: "Failed to start \(pin.displayName)", style: .error)
                 }
             }
         }
@@ -1412,13 +1357,7 @@ final class SprinklerStore: ObservableObject {
         case .setPin(let pin, let isOn, _):
             try await client.setPin(pin, on: isOn)
         case .timedPinRun(let pin, let durationMinutes, _):
-            try await client.setPin(pin, on: true)
-            let seconds = max(0, durationMinutes) * 60
-            if seconds > 0 {
-                let nanoseconds = UInt64(seconds) * 1_000_000_000
-                try await Task.sleep(nanoseconds: nanoseconds)
-            }
-            try await client.setPin(pin, on: false)
+            try await client.setPin(pin, on: true, minutes: durationMinutes)
         case .updatePin(let pin, let name, let isEnabled, _):
             try await client.updatePin(pin, name: name, isEnabled: isEnabled)
         case .reorderPins(let order):
