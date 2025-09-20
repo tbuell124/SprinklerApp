@@ -3,7 +3,6 @@ import SwiftUI
 struct SchedulesView: View {
     @EnvironmentObject private var store: SprinklerStore
     @State private var editingDraft: ScheduleDraft?
-    @State private var isPresentingEditor = false
 
     private var toastBinding: Binding<ToastState?> {
         Binding(get: { store.toast }, set: { store.toast = $0 })
@@ -33,13 +32,20 @@ struct SchedulesView: View {
                     } else {
                         ForEach(store.schedules) { schedule in
                             Button {
+                                // Tapping any row opens an editor sheet populated with that schedule.
                                 editingDraft = ScheduleDraft(schedule: schedule, pins: store.pins)
-                                isPresentingEditor = true
                             } label: {
                                 ScheduleRowView(schedule: schedule)
                             }
                             .buttonStyle(.plain)
                             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button(role: .destructive) {
+                                    // Swipe-to-delete to satisfy CRUD requirements.
+                                    store.deleteSchedule(schedule)
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+
                                 Button {
                                     store.duplicateSchedule(schedule)
                                 } label: {
@@ -67,18 +73,17 @@ struct SchedulesView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
+                        // Create a brand-new schedule and present it in the editor sheet.
                         editingDraft = ScheduleDraft(pins: store.pins)
-                        isPresentingEditor = true
                     } label: {
                         Image(systemName: "plus")
                     }
                 }
             }
-            .sheet(isPresented: $isPresentingEditor, onDismiss: { editingDraft = nil }) {
-                if let draft = editingDraft {
-                    ScheduleEditorView(draft: draft) { updated in
-                        store.upsertSchedule(updated)
-                    }
+            .sheet(item: $editingDraft, onDismiss: { editingDraft = nil }) { draft in
+                ScheduleEditorView(draft: draft) { updated in
+                    store.upsertSchedule(updated)
+                    editingDraft = nil
                 }
             }
         }
