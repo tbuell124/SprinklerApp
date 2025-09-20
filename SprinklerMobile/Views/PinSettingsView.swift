@@ -266,6 +266,7 @@ private extension View {
     ) -> some View {
         textInputAutocapitalization(.words)
             .disableAutocorrection(true)
+            .keyboardType(.default)
             .submitLabel(.done)
             .focused(focusBinding, equals: pinID)
             .onSubmit(onSubmit)

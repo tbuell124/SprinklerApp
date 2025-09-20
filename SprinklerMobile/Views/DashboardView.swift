@@ -632,6 +632,8 @@ private struct PinControlRow: View {
             HStack(spacing: 12) {
                 TextField("Minutes", text: $durationBinding)
                     .keyboardType(.numberPad)
+                    .textInputAutocapitalization(.never)
+                    .disableAutocorrection(true)
                     .textFieldStyle(.roundedBorder)
                     .frame(minWidth: 80)
                     .disabled(!isEnabled || isActive)
