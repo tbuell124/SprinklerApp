@@ -68,7 +68,7 @@ actor APIClient {
         }
 
         let payload = RainPayload(active: isActive, hours: durationHours)
-        let endpoint = Endpoint<EmptyResponse>(path: "/api/rain",
+        let endpoint = Endpoint<EmptyResponse>(path: "/api/rain-delay",
                                                method: .post,
                                                body: AnyEncodable(payload),
                                                fallbackToEmptyBody: true)
@@ -108,21 +108,21 @@ actor APIClient {
     }
 
     func createSchedule(_ schedule: ScheduleWritePayload) async throws {
-        let endpoint = Endpoint<EmptyResponse>(path: "/api/schedule",
+        let endpoint = Endpoint<EmptyResponse>(path: "/api/schedules",
                                                method: .post,
                                                body: AnyEncodable(schedule))
         _ = try await perform(endpoint)
     }
 
     func updateSchedule(id: String, schedule: ScheduleWritePayload) async throws {
-        let endpoint = Endpoint<EmptyResponse>(path: "/api/schedule/\(id)",
-                                               method: .post,
+        let endpoint = Endpoint<EmptyResponse>(path: "/api/schedules/\(id)",
+                                               method: .put,
                                                body: AnyEncodable(schedule))
         _ = try await perform(endpoint)
     }
 
     func deleteSchedule(id: String) async throws {
-        let endpoint = Endpoint<EmptyResponse>(path: "/api/schedule/\(id)",
+        let endpoint = Endpoint<EmptyResponse>(path: "/api/schedules/\(id)",
                                                method: .delete)
         _ = try await perform(endpoint)
     }

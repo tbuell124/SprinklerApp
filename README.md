@@ -8,8 +8,25 @@ This repository contains the SwiftUI iOS client that talks to your Raspberry Pi 
 
 ## Raspberry Pi Backend Quick Reference
 
-The Raspberry Pi backend exposes `/status` and `/zone/(on|off)/{zone}`. To keep the hardware safe:
-- (Optional) If you add the compat routes below, `/api/status`, `/api/pins`, and `/api/pin/{pin}` will also work.
+The authenticated FastAPI backend now exposes a RESTful surface that matches the iOS client's expectations. All requests must include the `Authorization: Bearer <token>` header from your `.env` file.
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `GET` | `/api/status` | Returns controller firmware version, live pin state, rain delay metadata, and the persisted schedules. |
+| `GET` | `/api/schedules` | Lists all schedules in execution order. |
+| `POST` | `/api/schedules` | Creates or replaces a schedule using the client's identifier. |
+| `PUT` | `/api/schedules/{id}` | Updates an existing schedule. |
+| `DELETE` | `/api/schedules/{id}` | Removes a schedule and cancels any pending run. |
+| `POST` | `/api/schedules/reorder` | Persists the schedule ordering supplied by the iOS app. |
+| `POST` | `/api/rain-delay` | Activates or clears a manual rain delay. |
+| `POST` | `/zone/on/{zone}` | Starts a zone immediately for the supplied minutes. |
+| `POST` | `/zone/off/{zone}` | Stops a running zone. |
+
+The legacy compatibility routes (`/status`, `/api/pins`, `/api/pin/{pin}`) remain available so older builds keep working during rollout.
+
+Schedules persist to `/srv/sprinkler-controller/state/schedules.json` and are replayed automatically on the Raspberry Pi. Each schedule triggers at its configured start time on matching weekdays, drives the referenced GPIO pins sequentially, and respects active rain delays so you never water during a manual lockout.
+
+To keep the hardware safe:
 
 - Only the following 16 BCM GPIO pins are permitted to toggle sprinkler relays: `4, 5, 6, 9, 10, 11, 12, 13, 16, 17, 19, 20, 21, 22, 26, 27`.
 - The `.env` file should include:
@@ -35,8 +52,7 @@ The Raspberry Pi backend exposes `/status` and `/zone/(on|off)/{zone}`. To keep 
 2. Inspect the backend status:
    ```bash
    TOKEN='<your token>'
-   curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8000/status | jq
-   # (if you add the compat shim, /api/status will also work)
+   curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8000/api/status | jq
    ```
    You should see exactly the 16 pins listed above under the `"pins"` key.
 3. Spot-check a few relays with:

@@ -38,7 +38,8 @@ struct ScheduleDraft: Identifiable, Equatable {
 
     var payload: ScheduleWritePayload {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        return ScheduleWritePayload(name: trimmedName.isEmpty ? nil : trimmedName,
+        return ScheduleWritePayload(id: id,
+                                    name: trimmedName.isEmpty ? nil : trimmedName,
                                     durationMinutes: max(runTimeMinutes, 0),
                                     startTime: startTime,
                                     days: days.isEmpty ? nil : Schedule.orderedDays(from: days),
@@ -59,6 +60,7 @@ struct ScheduleDraft: Identifiable, Equatable {
 
 /// Payload used when creating or updating a schedule via the controller API.
 struct ScheduleWritePayload: Encodable {
+    let id: String
     let name: String?
     let durationMinutes: Int
     let startTime: String
@@ -66,6 +68,7 @@ struct ScheduleWritePayload: Encodable {
     let isEnabled: Bool
 
     enum CodingKeys: String, CodingKey {
+        case id
         case name
         case durationMinutes = "duration"
         case startTime = "start_time"
