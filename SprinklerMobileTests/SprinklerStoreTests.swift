@@ -3,7 +3,7 @@ import XCTest
 
 @MainActor
 final class SprinklerStoreTests: XCTestCase {
-    func testSequenceScheduleTotalsAcrossMidnight() {
+    func testScheduleRunTimeAcrossMidnight() {
         let store = makeStore()
         let pins = [
             PinDTO(pin: 4, name: "Front Lawn", isActive: nil, isEnabled: true),
@@ -12,10 +12,10 @@ final class SprinklerStoreTests: XCTestCase {
         let scheduleDTO = ScheduleDTO(
             id: "sequence-midnight",
             name: "Overnight Soak",
+            runTimeMinutes: nil,
             startTime: "23:30",
             days: ["Mon"],
             isEnabled: true,
-            durationMinutes: nil,
             sequence: [
                 ScheduleSequenceItemDTO(pin: 4, durationMinutes: 45),
                 ScheduleSequenceItemDTO(pin: 5, durationMinutes: 90)
@@ -39,7 +39,7 @@ final class SprinklerStoreTests: XCTestCase {
         XCTAssertEqual(run.endDate, expectedEnd)
     }
 
-    func testLegacyDurationExpandsToAllPins() {
+    func testRunTimeUsesDirectDuration() {
         let store = makeStore()
         let pins = [
             PinDTO(pin: 4, name: "Front Lawn", isActive: nil, isEnabled: true),
@@ -49,10 +49,10 @@ final class SprinklerStoreTests: XCTestCase {
         let legacyDTO = ScheduleDTO(
             id: "legacy",
             name: "Legacy",
+            runTimeMinutes: 15,
             startTime: "06:00",
             days: ["Tue"],
             isEnabled: true,
-            durationMinutes: 15,
             sequence: nil
         )
 
@@ -68,7 +68,7 @@ final class SprinklerStoreTests: XCTestCase {
             return XCTFail("Expected legacy schedule run to be generated")
         }
 
-        let expectedEnd = calendar.date(from: DateComponents(year: 2024, month: 5, day: 7, hour: 6, minute: 30))!
+        let expectedEnd = calendar.date(from: DateComponents(year: 2024, month: 5, day: 7, hour: 6, minute: 15))!
         XCTAssertEqual(run.startDate, calendar.date(from: DateComponents(year: 2024, month: 5, day: 7, hour: 6, minute: 0)))
         XCTAssertEqual(run.endDate, expectedEnd)
     }
