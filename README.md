@@ -8,7 +8,8 @@ This repository contains the SwiftUI iOS client that talks to your Raspberry Pi 
 
 ## Raspberry Pi Backend Quick Reference
 
-The live Raspberry Pi build currently uses a FastAPI backend that exposes `/api/status`, `/api/pins`, and `/api/pin/{pin}` endpoints. To keep the hardware safe:
+The Raspberry Pi backend exposes `/status` and `/zone/(on|off)/{zone}`. To keep the hardware safe:
+- (Optional) If you add the compat routes below, `/api/status`, `/api/pins`, and `/api/pin/{pin}` will also work.
 
 - Only the following 16 BCM GPIO pins are permitted to toggle sprinkler relays: `4, 5, 6, 9, 10, 11, 12, 13, 16, 17, 19, 20, 21, 22, 26, 27`.
 - The `.env` file should include:
@@ -20,8 +21,8 @@ The live Raspberry Pi build currently uses a FastAPI backend that exposes `/api/
 - After updating the environment file run:
   ```bash
   sudo systemctl daemon-reload
-  sudo systemctl restart sprinkler.service
-  sudo systemctl status sprinkler.service --no-pager
+  sudo systemctl restart sprinkler-api.service
+  sudo systemctl status sprinkler-api.service --no-pager
   ```
 
 ### Verifying the allowed pins list
@@ -33,13 +34,18 @@ The live Raspberry Pi build currently uses a FastAPI backend that exposes `/api/
    ```
 2. Inspect the backend status:
    ```bash
-   curl -s http://127.0.0.1:5000/api/status | jq
+   TOKEN='<your token>'
+   curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8000/status | jq
+   # (if you add the compat shim, /api/status will also work)
    ```
    You should see exactly the 16 pins listed above under the `"pins"` key.
 3. Spot-check a few relays with:
    ```bash
-   curl -s -X POST http://127.0.0.1:5000/api/pin/4/on | jq
-   curl -s -X POST http://127.0.0.1:5000/api/pin/4/off | jq
+   curl -s -X POST -H "Authorization: Bearer $TOKEN" \
+     -H 'Content-Type: application/json' -d '{"minutes":1}' \
+     http://127.0.0.1:8000/zone/on/1 | jq
+   curl -s -X POST -H "Authorization: Bearer $TOKEN" \
+     http://127.0.0.1:8000/zone/off/1 | jq
    ```
    Repeat for other pins (for example `27` or `12`) to confirm each zone toggles the correct relay.
 

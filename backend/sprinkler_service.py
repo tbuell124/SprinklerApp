@@ -1,4 +1,4 @@
-"# FILE: sprinkler_service.py
+# FILE: sprinkler_service.py
 """
 Sprinkler backend service (auth'd FastAPI) — pigpio, rain-lock, timers.
 - Default GPIO pins expanded to 16 to match app.py (override via SPRINKLER_GPIO_PINS)
@@ -229,6 +229,46 @@ async def clear_rain_lock() -> JSONResponse:
     global _rain_lock_until
     _rain_lock_until = None
     return JSONResponse({"rain_lock_expires_at": None})
+
+# -- helpers --
+def _zone_for_pin(pin: int) -> int:
+    try:
+        return GPIO_PINS.index(pin) + 1
+    except ValueError:
+        raise HTTPException(status_code=404, detail=f"Pin {pin} not managed")
+
+
+def _pin_snapshot() -> list[dict]:
+    return [
+        {"pin": gpio, "on": (pi.read(gpio) == 0), "active_high": False}
+        for gpio in GPIO_PINS
+    ]
+
+
+# -- compat routes mirroring older docs/clients --
+@app.get("/api/status", dependencies=[Depends(require_token)])
+async def api_status_compat():
+    return await get_status()  # type: ignore
+
+
+@app.get("/api/pins", dependencies=[Depends(require_token)])
+async def api_pins_compat():
+    return _pin_snapshot()
+
+
+@app.post("/api/pin/{pin}/on", dependencies=[Depends(require_token)])
+async def api_pin_on_compat(pin: int):
+    zone = _zone_for_pin(pin)
+    return await start_zone(  # type: ignore
+        zone, StartZoneRequest(minutes=DEFAULT_RUNTIME_MINUTES)
+    )
+
+
+@app.post("/api/pin/{pin}/off", dependencies=[Depends(require_token)])
+async def api_pin_off_compat(pin: int):
+    zone = _zone_for_pin(pin)
+    return await stop_zone(zone)  # type: ignore
+
 
 @app.exception_handler(Exception)
 async def handle_unexpected_error(request: Request, exc: Exception) -> JSONResponse:
