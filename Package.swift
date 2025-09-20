@@ -50,9 +50,12 @@ let package = Package(
                 "Models/ConnectionTestLog.swift",
                 "Models/DiscoveredDevice.swift",
                 "Data/APIError.swift",
-                "Services/HealthChecker.swift",
+                "Data/AuthenticationProtocols.swift",
+                "Services/HealthService.swift",
                 "Services/BonjourDiscoveryService.swift",
                 "Stores/ConnectivityStore.swift",
+                "Utils/ControllerConfig.swift",
+                "Utils/URLNormalize.swift",
                 "Utils/Validators.swift",
                 "ViewModels/DiscoveryViewModel.swift"
             ]

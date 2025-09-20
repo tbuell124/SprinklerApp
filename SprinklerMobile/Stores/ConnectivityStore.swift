@@ -38,12 +38,12 @@ final class ConnectivityStore: ObservableObject {
 
     private let checker: ConnectivityChecking
     private let defaults: UserDefaults
-    static let defaultBase = "http://sprinkler.local:8000"
+    static let defaultBase = ControllerConfig.defaultBaseAddress
     private static let udKey = "sprinkler.baseURL"
     private let logsKey = "sprinkler.connection_logs"
     private let maxStoredLogs = 20
 
-    init(checker: ConnectivityChecking = HealthChecker(), defaults: UserDefaults = .standard) {
+    init(checker: ConnectivityChecking = HealthService(), defaults: UserDefaults = .standard) {
         self.defaults = defaults
         let saved = defaults.string(forKey: Self.udKey)
         self.baseURLString = (saved?.isEmpty == false) ? saved! : Self.defaultBase
@@ -113,27 +113,7 @@ final class ConnectivityStore: ObservableObject {
 
     /// Normalizes text entered by the user by prepending `http://` when missing.
     static func normalizedBaseURL(from s: String) -> URL? {
-        // Trim whitespace so inputs like " sprinkler.local " don't end up persisted with spaces.
-        var str = s.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !str.isEmpty else { return nil }
-
-        // Ensure a scheme exists by defaulting to HTTP when none is provided.
-        if !str.lowercased().hasPrefix("http://") && !str.lowercased().hasPrefix("https://") {
-            str = "http://" + str
-        }
-
-        // Validate the URL using URLComponents to ensure we actually have a host.
-        guard
-            let url = URL(string: str),
-            var components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-            let host = components.host, !host.isEmpty
-        else {
-            return nil
-        }
-
-        // Remove any accidental fragments but otherwise preserve user-supplied path/port.
-        components.fragment = nil
-        return components.url
+        return try? Validators.normalizeBaseAddress(s)
     }
 }
 

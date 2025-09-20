@@ -2,7 +2,9 @@ import SwiftUI
 
 @main
 struct SprinklerMobileApp: App {
-    @StateObject private var connectivityStore = ConnectivityStore()
+    @StateObject private var connectivityStore = ConnectivityStore(
+        checker: HealthService(authentication: AuthenticationController())
+    )
     @StateObject private var sprinklerStore = SprinklerStore()
 
     var body: some Scene {

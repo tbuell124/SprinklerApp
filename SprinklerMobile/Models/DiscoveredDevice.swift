@@ -15,7 +15,15 @@ struct DiscoveredDevice: Identifiable, Equatable {
 
     /// Builds a usable base URL string for making requests to the controller.
     var baseURLString: String {
-        if let h = host { return "http://\(h):\(port)" }
+        if let h = host {
+            let sanitized = URLNormalize.sanitizedHost(h)
+            if !sanitized.isEmpty {
+                if sanitized.contains(":") {
+                    return "http://[\(sanitized)]:\(port)"
+                }
+                return "http://\(sanitized):\(port)"
+            }
+        }
         if let ip = ip {
             return ip.contains(":") ? "http://[\(ip)]:\(port)" : "http://\(ip):\(port)"
         }

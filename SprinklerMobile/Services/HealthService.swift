@@ -9,21 +9,31 @@ protocol ConnectivityChecking {
     func check(baseURL: URL) async -> ConnectivityState
 }
 
-/// Performs a controller health check, supporting both `/status` and `/api/status` endpoints.
-struct HealthChecker: ConnectivityChecking {
+/// Performs a controller health check, supporting both `/status` and `/api/status` endpoints while
+/// automatically attaching the stored authentication token when available.
+struct HealthService: ConnectivityChecking {
     private let session: URLSession
+    private let authentication: AuthenticationProviding?
 
-    /// Creates a health checker backed by the supplied URL session.
-    init(session: URLSession = .shared) {
+    /// Creates a health service backed by the supplied URL session.
+    /// - Parameters:
+    ///   - session: URLSession used to issue network requests. Defaults to `.shared` for convenience.
+    ///   - authentication: Optional provider that supplies the authorization header required by secured controllers.
+    init(session: URLSession = .shared, authentication: AuthenticationProviding? = nil) {
         self.session = session
+        self.authentication = authentication
     }
 
     func check(baseURL: URL) async -> ConnectivityState {
+        let normalizedBase = URLNormalize.normalized(baseURL)
+        let header = await authentication?.authorizationHeader()
         var lastError: String?
 
-        for statusURL in Self.candidateStatusURLs(for: baseURL) {
+        for statusURL in Self.candidateStatusURLs(for: normalizedBase) {
             do {
-                let request = Self.makeStatusRequest(url: statusURL)
+                var request = Self.makeStatusRequest(url: statusURL)
+                if let header { request.addValue(header.value, forHTTPHeaderField: header.key) }
+
                 let (data, response) = try await session.data(for: request)
 
                 guard let http = response as? HTTPURLResponse else {
@@ -31,7 +41,6 @@ struct HealthChecker: ConnectivityChecking {
                     continue
                 }
 
-                // A controller may respond with 204 (No Content) when everything is OK.
                 if http.statusCode == 204 {
                     return .connected
                 }
@@ -75,21 +84,31 @@ struct HealthChecker: ConnectivityChecking {
     /// Generates candidate status endpoints, gracefully handling different controller URL schemes.
     private static func candidateStatusURLs(for baseURL: URL) -> [URL] {
         var urls: [URL] = []
+        var visited = Set<String>()
         let segments = pathSegments(in: baseURL)
 
-        if let last = segments.last, last.caseInsensitiveCompare("status") == .orderedSame {
-            urls.append(baseURL)
-        } else {
-            urls.append(baseURL.appendingPathComponent("status"))
-
-            if !segments.contains(where: { $0.caseInsensitiveCompare("api") == .orderedSame }) {
-                let apiURL = baseURL
-                    .appendingPathComponent("api")
-                    .appendingPathComponent("status")
-                if !urls.contains(apiURL) {
-                    urls.append(apiURL)
-                }
+        func append(_ url: URL) {
+            let normalized = URLNormalize.normalized(url)
+            let key = normalized.absoluteString
+            if visited.insert(key).inserted {
+                urls.append(normalized)
             }
+        }
+
+        if let last = segments.last, last.caseInsensitiveCompare("status") == .orderedSame {
+            append(baseURL)
+        } else {
+            append(baseURL.appendingPathComponent("status"))
+        }
+
+        if segments.contains(where: { $0.caseInsensitiveCompare("api") == .orderedSame }) {
+            if let last = segments.last,
+               last.caseInsensitiveCompare("status") == .orderedSame,
+               let root = removingPathSegments(startingWith: "api", from: baseURL) {
+                append(root.appendingPathComponent("status"))
+            }
+        } else {
+            append(baseURL.appendingPathComponent("api").appendingPathComponent("status"))
         }
 
         return urls
@@ -98,6 +117,22 @@ struct HealthChecker: ConnectivityChecking {
     /// Extracts normalized, non-empty path segments for a URL.
     private static func pathSegments(in url: URL) -> [String] {
         url.pathComponents.filter { $0 != "/" && !$0.isEmpty }
+    }
+
+    /// Removes the specified segment and everything after it from the URL's path.
+    private static func removingPathSegments(startingWith segment: String, from url: URL) -> URL? {
+        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return nil }
+        var segments = pathSegments(in: url)
+        guard let index = segments.firstIndex(where: { $0.caseInsensitiveCompare(segment) == .orderedSame }) else {
+            return nil
+        }
+        segments.removeSubrange(index...)
+        if segments.isEmpty {
+            components.percentEncodedPath = ""
+        } else {
+            components.percentEncodedPath = "/" + segments.joined(separator: "/")
+        }
+        return components.url.map(URLNormalize.normalized)
     }
 
     /// Attempts to interpret a JSON status payload and determine whether the controller is healthy.
