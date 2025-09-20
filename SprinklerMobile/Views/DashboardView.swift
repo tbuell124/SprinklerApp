@@ -519,10 +519,9 @@ private struct PinListSection: View {
                         }
                         .onMove(perform: movePins)
                     }
-                    .frame(maxHeight: listHeight)
+                    .frame(height: listHeight)
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
-                    .scrollDisabled(true)
                     .scrollDismissesKeyboard(.interactively)
                     .toolbar { keyboardToolbar }
                 }
