@@ -4,7 +4,7 @@ struct ConnectivityBadgeView: View {
     let state: ConnectivityState
     var isLoading: Bool = false
 
-var body: some View {
+    var body: some View {
         HStack(alignment: .center, spacing: 12) {
             Circle()
                 .fill(indicatorColor)
@@ -46,35 +46,11 @@ var body: some View {
         .accessibilityLabel(accessibilitySummary)
     }
 
-    private var indicatorColor: Color {
-        switch state {
-        case .connected:
-            return .appSuccess
-        case .offline:
-            return .appDanger
-        }
-    }
+    private var indicatorColor: Color { state.statusColor }
 
-    private var title: String {
-        switch state {
-        case .connected:
-            return "Connected"
-        case let .offline(description):
-            if let description, !description.isEmpty {
-                return "Offline"
-            }
-            return "Offline"
-        }
-    }
+    private var title: String { state.statusTitle }
 
-    private var subtitle: String? {
-        switch state {
-        case .connected:
-            return "The controller is reachable on your network."
-        case let .offline(description):
-            return description ?? "Tap Run Health Check to troubleshoot the connection."
-        }
-    }
+    private var subtitle: String? { state.statusMessage }
 
     private var accessibilitySummary: String {
         if let subtitle {

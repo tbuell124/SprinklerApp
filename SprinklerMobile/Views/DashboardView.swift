@@ -187,9 +187,9 @@ private struct GPIOIndicatorGrid: View {
         case .connected:
             controllerIsOnline = true
             controllerMessage = "Reachable"
-        case let .offline(message):
+        case .offline:
             controllerIsOnline = false
-            controllerMessage = message ?? "Offline"
+            controllerMessage = controllerState.errorDescription ?? "Offline"
         }
 
         results.append(

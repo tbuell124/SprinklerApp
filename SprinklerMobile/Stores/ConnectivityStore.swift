@@ -99,9 +99,9 @@ final class ConnectivityStore: ObservableObject {
         case .connected:
             outcome = .success
             message = "Controller responded in \(Self.formatLatency(latency))"
-        case let .offline(errorDescription):
+        case .offline:
             outcome = .failure
-            message = errorDescription ?? "Controller is unreachable"
+            message = result.errorDescription ?? "Controller is unreachable"
         }
 
         let log = ConnectionTestLog(outcome: outcome,
@@ -178,8 +178,31 @@ private extension ConnectivityStore {
 }
 
 /// Lightweight enum describing whether the sprinkler controller is reachable.
+/// The model intentionally only captures the binary connected/offline state with
+/// an optional error payload so the UI can display meaningful troubleshooting
+/// information without having to understand intermediate phases.
 enum ConnectivityState: Equatable {
+    /// Indicates that the controller responded to a health check.
     case connected
+    /// Indicates that the controller could not be reached or reported an error.
+    /// - Parameter errorDescription: Optional human readable explanation that can
+    ///   be surfaced directly in the interface to aid troubleshooting.
     case offline(errorDescription: String?)
+}
+
+extension ConnectivityState {
+    /// Convenience accessor for determining whether the controller is reachable.
+    var isConnected: Bool {
+        if case .connected = self { return true }
+        return false
+    }
+
+    /// Extracts the associated error message when the controller is offline.
+    var errorDescription: String? {
+        if case let .offline(description) = self {
+            return description
+        }
+        return nil
+    }
 }
 
