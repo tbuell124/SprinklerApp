@@ -35,6 +35,10 @@ final class ConnectivityStore: ObservableObject {
     @Published private(set) var recentLogs: [ConnectionTestLog]
     /// Inline validation error surfaced underneath the controller address field.
     @Published var validationMessage: String?
+    /// Timestamp describing when the sprinkler controller last responded successfully.
+    var lastSuccessfulConnectionDate: Date? {
+        recentLogs.first(where: { $0.outcome == .success })?.date
+    }
 
     private let checker: ConnectivityChecking
     private let defaults: UserDefaults
