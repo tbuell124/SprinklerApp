@@ -24,9 +24,7 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                LinearGradient(colors: [Color.appBackground, Color.appSecondaryBackground],
-                               startPoint: .top,
-                               endPoint: .bottom)
+                LinearGradient.appCanvas
                     .ignoresSafeArea()
 
                 ScrollView {
@@ -147,37 +145,43 @@ struct SettingsView: View {
 // MARK: - Supporting Sections
 
 /// Hero card used to set the tone of the settings page with immediate feedback.
-private struct SettingsHeroCard: View {
+private struct SettingsHeroCard: CardView {
     let state: ConnectivityState
     let baseURL: String
     let lastChecked: Date?
     let lastResult: ConnectionTestLog?
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+    var cardConfiguration: CardConfiguration { .hero(accent: Color.appAccentPrimary) }
+
+    var cardBody: some View {
+        VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Controller Overview")
-                    .font(.callout.weight(.medium))
+                    .font(.appSubheadline)
                     .foregroundStyle(.secondary)
                 Text("Stay connected to your sprinkler")
-                    .font(.title2.weight(.bold))
+                    .font(.appTitle)
+                    .foregroundStyle(.primary)
             }
 
-            HStack(alignment: .center, spacing: 12) {
-                Image(systemName: state.statusIcon)
-                    .font(.system(size: 30, weight: .semibold))
-                    .foregroundStyle(state.statusColor)
-                    .frame(width: 60, height: 60)
-                    .background(state.statusColor.opacity(0.15))
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            HStack(alignment: .center, spacing: 14) {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(Color.appAccentPrimary.opacity(0.18))
+                    .overlay {
+                        Image(systemName: state.statusIcon)
+                            .font(.system(.title, design: .rounded).weight(.semibold))
+                            .foregroundStyle(Color.appAccentPrimary)
+                    }
+                    .frame(width: 64, height: 64)
+                    .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(state.statusTitle)
-                        .font(.headline)
+                        .font(.appButton)
                         .foregroundStyle(.primary)
                     if let message = state.statusMessage {
                         Text(message)
-                            .font(.subheadline)
+                            .font(.appCaption)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -188,41 +192,36 @@ private struct SettingsHeroCard: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("Configured Address")
-                    .font(.caption)
+                    .font(.appCaption)
                     .foregroundStyle(.secondary)
                 Text(baseURL)
-                    .font(.subheadline.monospaced())
+                    .font(.appMonospacedBody)
                     .foregroundStyle(.primary)
 
                 if let lastResult {
                     Text(lastResult.message)
-                        .font(.caption)
+                        .font(.appCaption)
                         .foregroundStyle(lastResult.outcome == .success ? Color.appSuccess : Color.appDanger)
                         .accessibilityLabel("Last test result: \(lastResult.message)")
                 }
 
                 if let lastChecked {
                     Text("Last tested \(settingsRelativeFormatter.localizedString(for: lastChecked, relativeTo: .now))")
-                        .font(.caption)
+                        .font(.appCaption)
                         .foregroundStyle(.secondary)
                 } else {
                     Text("Run a health check to capture the current status.")
-                        .font(.caption)
+                        .font(.appCaption)
                         .foregroundStyle(.secondary)
                 }
             }
         }
-        .padding(24)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.appBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: 6)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
     }
 }
 
 /// Primary card that holds the controller address field and connectivity state.
-private struct ConnectionSettingsCard: View {
+private struct ConnectionSettingsCard: CardView {
     @Binding var baseURL: String
     let isChecking: Bool
     let state: ConnectivityState
@@ -234,14 +233,15 @@ private struct ConnectionSettingsCard: View {
     let onCopy: () -> Void
     let onViewLogs: () -> Void
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Controller Address")
-                .font(.headline)
-
-            Text("Provide the Raspberry Pi's HTTP base URL. We'll remember it for future sessions.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+    var cardBody: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Controller Address")
+                    .font(.appHeadline)
+                Text("Provide the Raspberry Pi's HTTP base URL. We'll remember it for future sessions.")
+                    .font(.appBody)
+                    .foregroundStyle(.secondary)
+            }
 
             VStack(spacing: 12) {
                 TextField("http://sprinkler.local:8000", text: $baseURL)
@@ -250,12 +250,13 @@ private struct ConnectionSettingsCard: View {
                     .disableAutocorrection(true)
                     .textContentType(.URL)
                     .focused(focus)
-                    .accessibilityLabel("Controller address")
-                    .accessibilityHint("Enter the Raspberry Pi host name or IP address.")
+                    .font(.appBody)
                     .padding(.vertical, 12)
                     .padding(.horizontal, 16)
                     .background(Color.appSecondaryBackground.opacity(0.6))
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .accessibilityLabel("Controller address")
+                    .accessibilityHint("Enter the Raspberry Pi host name or IP address.")
 
                 HStack(spacing: 12) {
                     Button(action: onCommit) {
@@ -265,7 +266,7 @@ private struct ConnectionSettingsCard: View {
                                 .frame(maxWidth: .infinity)
                         } else {
                             Text("Test Connection")
-                                .fontWeight(.semibold)
+                                .font(.appButton)
                                 .frame(maxWidth: .infinity)
                         }
                     }
@@ -276,7 +277,8 @@ private struct ConnectionSettingsCard: View {
 
                     Button(action: onCopy) {
                         Label("Copy", systemImage: "doc.on.doc")
-                            .font(.subheadline.weight(.medium))
+                            .font(.appButton)
+                            .labelStyle(.titleAndIcon)
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
@@ -290,7 +292,7 @@ private struct ConnectionSettingsCard: View {
 
             if let validationMessage, !validationMessage.isEmpty {
                 Text(validationMessage)
-                    .font(.footnote)
+                    .font(.appFootnote)
                     .foregroundStyle(.secondary)
                     .accessibilityLabel("Connection error: \(validationMessage)")
             }
@@ -298,13 +300,13 @@ private struct ConnectionSettingsCard: View {
             if let lastResult {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(lastResult.message)
-                        .font(.footnote)
+                        .font(.appFootnote)
                         .foregroundStyle(lastResult.outcome == .success ? Color.appSuccess : Color.appDanger)
                         .accessibilityLabel("Last test result: \(lastResult.message)")
 
                     if let lastChecked {
                         Text("Last tested \(settingsRelativeFormatter.localizedString(for: lastChecked, relativeTo: .now))")
-                            .font(.footnote)
+                            .font(.appFootnote)
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -312,22 +314,17 @@ private struct ConnectionSettingsCard: View {
 
             Button(action: onViewLogs) {
                 Label("View Connection Logs", systemImage: "list.bullet.rectangle")
-                    .font(.subheadline.weight(.medium))
+                    .font(.appButton)
             }
             .buttonStyle(.bordered)
             .accessibilityHint("Opens the detailed history of recent connection checks.")
         }
-        .padding(24)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.appBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 4)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
     }
 }
 
 /// Card that highlights quick access to pin management features.
-private struct PinManagementCard: View {
+private struct PinManagementCard: CardView {
     let activePins: Int
     let totalPins: Int
 
@@ -338,54 +335,157 @@ private struct PinManagementCard: View {
         return "Manage naming, activation, and ordering for your zones."
     }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
+    var cardBody: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Pin Settings")
-                        .font(.headline)
+                        .font(.appHeadline)
                     Text(subtitle)
-                        .font(.subheadline)
+                        .font(.appBody)
                         .foregroundStyle(.secondary)
                 }
+
                 Spacer()
-                Image(systemName: "slider.horizontal.3")
-                    .font(.title3)
-                    .foregroundStyle(.tint)
-                    .padding(12)
-                    .background(Color.appSecondaryBackground.opacity(0.6))
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color.appAccentSecondary.opacity(0.15))
+                    .overlay {
+                        Image(systemName: "slider.horizontal.3")
+                            .font(.system(.title3, design: .rounded).weight(.semibold))
+                            .foregroundStyle(Color.appAccentSecondary)
+                    }
+                    .frame(width: 52, height: 52)
+                    .accessibilityHidden(true)
             }
 
             HStack(spacing: 12) {
                 Label("Active: \(activePins)", systemImage: "bolt.fill")
-                    .font(.caption.weight(.semibold))
+                    .font(.appCaption.weight(.semibold))
                     .foregroundStyle(.primary)
                 Label("Total: \(totalPins)", systemImage: "square.stack.3d.up")
-                    .font(.caption)
+                    .font(.appCaption)
                     .foregroundStyle(.secondary)
                 Spacer()
                 Image(systemName: "chevron.right")
                     .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
             }
         }
-        .padding(24)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.appBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 4)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel("Pin settings. \(activePins) active pins out of \(totalPins).")
         .accessibilityHint("Opens controls for renaming and activating sprinkler zones.")
     }
 }
 
 /// Card that surfaces automatic rain delay options and backend persistence.
-private struct RainDelaySettingsCard: View {
+private struct RainDelaySettingsCard: CardView {
     @ObservedObject var store: SprinklerStore
     let onSave: () -> Void
 
     @State private var showDisableConfirmation = false
+
+    var cardBody: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Rain Delay Automation")
+                    .font(.appHeadline)
+                Text("Automatically pause watering when the forecast exceeds your configured threshold.")
+                    .font(.appBody)
+                    .foregroundStyle(.secondary)
+            }
+
+            Toggle(isOn: automationBinding) {
+                Text("Automatic rain delay")
+                    .font(.appButton)
+            }
+            .disabled(!canEnableAutomation || store.isUpdatingRainAutomation)
+            .accessibilityLabel("Automatic rain delay")
+            .accessibilityHint("Pause schedules when rain probability exceeds the configured threshold.")
+
+            if store.isUpdatingRainAutomation {
+                ProgressView()
+                    .progressViewStyle(.circular)
+                    .accessibilityHidden(true)
+            }
+
+            VStack(spacing: 12) {
+                TextField("ZIP Code", text: zipCodeBinding)
+                    .keyboardType(.numberPad)
+                    .textInputAutocapitalization(.never)
+                    .disableAutocorrection(true)
+                    .font(.appBody)
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, 16)
+                    .background(Color.appSecondaryBackground.opacity(0.6))
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .accessibilityLabel("ZIP code")
+                    .accessibilityHint("Enter the ZIP code used for rain forecasts.")
+
+                TextField("Rain threshold (%)", text: thresholdBinding)
+                    .keyboardType(.numberPad)
+                    .textInputAutocapitalization(.never)
+                    .disableAutocorrection(true)
+                    .font(.appBody)
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, 16)
+                    .background(Color.appSecondaryBackground.opacity(0.6))
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .accessibilityLabel("Rain threshold percentage")
+                    .accessibilityHint("Enter the forecast chance that should trigger a rain delay.")
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                if !isZipValid {
+                    Text("ZIP code must be five digits.")
+                        .font(.appCaption)
+                        .foregroundStyle(Color.appDanger)
+                }
+                if !isThresholdValid {
+                    Text("Threshold must be between 0% and 100%.")
+                        .font(.appCaption)
+                        .foregroundStyle(Color.appDanger)
+                }
+                if !canEnableAutomation {
+                    Text("Automation requires both a ZIP code and rain threshold.")
+                        .font(.appCaption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Button(action: onSave) {
+                if store.isSavingRainSettings {
+                    ProgressView()
+                        .progressViewStyle(.circular)
+                        .frame(maxWidth: .infinity)
+                } else {
+                    Text("Save Settings")
+                        .font(.appButton)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(store.isSavingRainSettings)
+            .accessibilityHint("Persist rain delay preferences to the sprinkler controller.")
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    var body: some View {
+        CardContainer { cardBody }
+            .alert("Disable automatic rain delay?", isPresented: $showDisableConfirmation) {
+                Button("Disable", role: .destructive) {
+                    store.setRainAutomationEnabled(false)
+                    showDisableConfirmation = false
+                }
+                Button("Cancel", role: .cancel) {
+                    showDisableConfirmation = false
+                    store.rainSettingsIsEnabled = true
+                }
+            } message: {
+                Text("Manual confirmation prevents accidental watering during storms.")
+            }
+    }
 
     private var zipCodeBinding: Binding<String> {
         Binding(get: { store.rainSettingsZip },
@@ -405,23 +505,6 @@ private struct RainDelaySettingsCard: View {
                 })
     }
 
-    private var canEnableAutomation: Bool {
-        isZipValid && isThresholdValid
-    }
-
-    private var isZipValid: Bool {
-        let trimmed = store.rainSettingsZip.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.count == 5 && trimmed.allSatisfy(\.isNumber)
-    }
-
-    private var isThresholdValid: Bool {
-        let trimmed = store.rainSettingsThreshold.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let value = Int(trimmed), (0...100).contains(value) {
-            return true
-        }
-        return false
-    }
-
     private var automationBinding: Binding<Bool> {
         Binding(get: { store.rainSettingsIsEnabled },
                 set: { newValue in
@@ -433,128 +516,46 @@ private struct RainDelaySettingsCard: View {
                 })
     }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Rain Delay Settings")
-                .font(.headline)
+    private var canEnableAutomation: Bool {
+        isZipValid && isThresholdValid
+    }
 
-            Text("Automatically pause watering when the forecast exceeds your configured threshold.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+    private var isZipValid: Bool {
+        let trimmed = store.rainSettingsZip.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.count == 5 && trimmed.allSatisfy(\.isNumber)
+    }
 
-            Toggle(isOn: automationBinding) {
-                Text("Automatic rain delay")
-                    .font(.subheadline.weight(.semibold))
-            }
-            .disabled(!canEnableAutomation || store.isUpdatingRainAutomation)
-            .accessibilityLabel("Automatic rain delay")
-            .accessibilityHint("Pause schedules when rain probability exceeds the configured threshold.")
-
-            if store.isUpdatingRainAutomation {
-                ProgressView()
-                    .progressViewStyle(.circular)
-                    .accessibilityHidden(true)
-            }
-
-            VStack(spacing: 12) {
-                TextField("ZIP Code", text: zipCodeBinding)
-                    .keyboardType(.numberPad)
-                    .textInputAutocapitalization(.never)
-                    .disableAutocorrection(true)
-                    .padding(.vertical, 12)
-                    .padding(.horizontal, 16)
-                    .background(Color.appSecondaryBackground.opacity(0.6))
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .accessibilityLabel("ZIP code")
-                    .accessibilityHint("Enter the ZIP code used for rain forecasts.")
-
-                TextField("Rain threshold (%)", text: thresholdBinding)
-                    .keyboardType(.numberPad)
-                    .textInputAutocapitalization(.never)
-                    .disableAutocorrection(true)
-                    .padding(.vertical, 12)
-                    .padding(.horizontal, 16)
-                    .background(Color.appSecondaryBackground.opacity(0.6))
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .accessibilityLabel("Rain threshold percentage")
-                    .accessibilityHint("Enter the forecast chance that should trigger a rain delay.")
-            }
-
-            VStack(alignment: .leading, spacing: 6) {
-                if !isZipValid {
-                    Text("ZIP code must be five digits.")
-                        .font(.caption)
-                        .foregroundStyle(Color.appDanger)
-                }
-                if !isThresholdValid {
-                    Text("Threshold must be between 0% and 100%.")
-                        .font(.caption)
-                        .foregroundStyle(Color.appDanger)
-                }
-                if !canEnableAutomation {
-                    Text("Automation requires both a ZIP code and rain threshold.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Button(action: onSave) {
-                if store.isSavingRainSettings {
-                    ProgressView()
-                        .progressViewStyle(.circular)
-                        .frame(maxWidth: .infinity)
-                } else {
-                    Text("Save Settings")
-                        .fontWeight(.semibold)
-                        .frame(maxWidth: .infinity)
-                }
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(store.isSavingRainSettings)
-            .accessibilityHint("Persist rain delay preferences to the sprinkler controller.")
-        }
-        .padding(24)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.appBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 4)
-        .alert("Disable automatic rain delay?", isPresented: $showDisableConfirmation) {
-            Button("Disable", role: .destructive) {
-                store.setRainAutomationEnabled(false)
-                showDisableConfirmation = false
-            }
-            Button("Cancel", role: .cancel) {
-                showDisableConfirmation = false
-            }
-        } message: {
-            Text("Manual confirmation prevents accidental watering during storms.")
-        }
+    private var isThresholdValid: Bool {
+        let trimmed = store.rainSettingsThreshold.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let value = Int(trimmed) else { return false }
+        return (0...100).contains(value)
     }
 }
 
 /// Displays discovered Bonjour devices in a stylised card.
-private struct DiscoveryCard: View {
+private struct DiscoveryCard: CardView {
     @ObservedObject var viewModel: DiscoveryViewModel
     let logs: [ConnectionTestLog]
     let onSelect: (DiscoveredDevice) -> Void
     let onRefresh: () -> Void
     let onViewLogs: () -> Void
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .center) {
+    var cardBody: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            HStack(alignment: .center, spacing: 12) {
                 Text("Discovered Devices")
-                    .font(.headline)
+                    .font(.appHeadline)
                 Spacer()
                 if viewModel.isBrowsing {
                     ProgressView()
                         .controlSize(.small)
+                        .accessibilityLabel("Discovering devices")
                 }
             }
 
             if let message = viewModel.errorMessage {
                 Text(message)
-                    .font(.footnote)
+                    .font(.appFootnote)
                     .foregroundStyle(.secondary)
             }
 
@@ -565,12 +566,13 @@ private struct DiscoveryCard: View {
                             ProgressView()
                                 .controlSize(.small)
                             Text("Searching your network…")
+                                .font(.appFootnote)
                         }
                     } else if viewModel.errorMessage == nil {
                         Text("No sprinkler controllers discovered yet. Tap Refresh to try again.")
+                            .font(.appFootnote)
                     }
                 }
-                .font(.footnote)
                 .foregroundStyle(.secondary)
             } else {
                 VStack(spacing: 12) {
@@ -579,28 +581,30 @@ private struct DiscoveryCard: View {
                             onSelect(device)
                         } label: {
                             VStack(alignment: .leading, spacing: 6) {
-                                Text(device.name.isEmpty ? "sprinkler" : device.name)
-                                    .font(.subheadline.weight(.semibold))
+                                Text(deviceDisplayName(device))
+                                    .font(.appSubheadline.weight(.semibold))
                                     .foregroundStyle(.primary)
                                 Text(deviceSubtitle(for: device))
-                                    .font(.caption)
+                                    .font(.appCaption)
                                     .foregroundStyle(.secondary)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(16)
-                            .background(Color.appSecondaryBackground.opacity(0.5))
-                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .background(Color.appSecondaryBackground.opacity(0.55))
+                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                         }
                         .buttonStyle(.plain)
+                        .accessibilityHint("Connect to \(deviceDisplayName(device))")
                     }
                 }
             }
 
             if !logs.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 10) {
                     Divider()
+                        .background(Color.appSeparator.opacity(0.4))
                     Text("Recent Connection Tests")
-                        .font(.subheadline.weight(.semibold))
+                        .font(.appSubheadline.weight(.semibold))
                     VStack(spacing: 8) {
                         ForEach(logs) { log in
                             ConnectionLogPreviewRow(log: log)
@@ -608,7 +612,7 @@ private struct DiscoveryCard: View {
                     }
                     Button(action: onViewLogs) {
                         Label("View All Logs", systemImage: "clock.arrow.circlepath")
-                            .font(.footnote.weight(.semibold))
+                            .font(.appButton)
                     }
                     .buttonStyle(.bordered)
                     .accessibilityHint("Opens the detailed list of connection attempts.")
@@ -618,15 +622,16 @@ private struct DiscoveryCard: View {
             HStack {
                 Spacer()
                 Button("Refresh", action: onRefresh)
+                    .font(.appButton)
                     .disabled(viewModel.isBrowsing)
             }
         }
-        .padding(24)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.appBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 4)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
+    }
+
+    private func deviceDisplayName(_ device: DiscoveredDevice) -> String {
+        let trimmed = device.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "sprinkler" : trimmed
     }
 
     private func deviceSubtitle(for device: DiscoveredDevice) -> String {
@@ -634,7 +639,6 @@ private struct DiscoveryCard: View {
         return "\(endpoint):\(device.port)"
     }
 }
-
 /// Compact row used to preview a single connection test result inside the discovery card.
 private struct ConnectionLogPreviewRow: View {
     let log: ConnectionTestLog
@@ -647,24 +651,25 @@ private struct ConnectionLogPreviewRow: View {
         HStack(alignment: .center, spacing: 12) {
             Image(systemName: log.outcome == .success ? "checkmark.circle.fill" : "xmark.octagon.fill")
                 .foregroundStyle(accentColor)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(log.message)
-                    .font(.footnote)
+                    .font(.appFootnote)
                     .foregroundStyle(.primary)
                 HStack(spacing: 6) {
                     Text(log.outcome.label)
-                        .font(.caption2.weight(.semibold))
+                        .font(.appCaption2.weight(.semibold))
                         .foregroundStyle(accentColor)
                     if let latency = log.formattedLatency {
                         Text(latency)
-                            .font(.caption2)
+                            .font(.appCaption2)
                             .foregroundStyle(.secondary)
                     }
                 }
             }
             Spacer()
             Text(settingsRelativeFormatter.localizedString(for: log.date, relativeTo: .now))
-                .font(.caption2)
+                .font(.appCaption2)
                 .foregroundStyle(.secondary)
         }
         .accessibilityElement(children: .combine)
@@ -683,12 +688,12 @@ private struct ConnectionLogsView: View {
                 if logs.isEmpty {
                     VStack(spacing: 12) {
                         Image(systemName: "tray")
-                            .font(.largeTitle)
+                            .font(.system(.largeTitle, design: .rounded))
                             .foregroundStyle(.secondary)
                         Text("No Connection Logs")
-                            .font(.headline)
+                            .font(.appHeadline)
                         Text("Run a connection test to capture history.")
-                            .font(.subheadline)
+                            .font(.appBody)
                             .foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity, alignment: .center)
@@ -700,19 +705,19 @@ private struct ConnectionLogsView: View {
                                 Image(systemName: log.outcome == .success ? "checkmark.circle.fill" : "xmark.octagon.fill")
                                     .foregroundStyle(log.outcome == .success ? Color.appSuccess : Color.appDanger)
                                 Text(log.outcome.label)
-                                    .font(.subheadline.weight(.semibold))
+                                    .font(.appSubheadline.weight(.semibold))
                                     .foregroundStyle(log.outcome == .success ? Color.appSuccess : Color.appDanger)
                                 Spacer()
                                 Text(settingsRelativeFormatter.localizedString(for: log.date, relativeTo: .now))
-                                    .font(.caption)
+                                    .font(.appCaption)
                                     .foregroundStyle(.secondary)
                             }
                             Text(log.message)
-                                .font(.body)
+                                .font(.appBody)
                                 .foregroundStyle(.primary)
                             if let latency = log.formattedLatency {
                                 Text("Latency: \(latency)")
-                                    .font(.caption)
+                                    .font(.appCaption)
                                     .foregroundStyle(.secondary)
                             }
                         }
@@ -733,24 +738,19 @@ private struct ConnectionLogsView: View {
 }
 
 /// Reinforces best practices for keeping connectivity stable.
-private struct HelpfulSettingsTipsCard: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+private struct HelpfulSettingsTipsCard: CardView {
+    var cardBody: some View {
+        VStack(alignment: .leading, spacing: 16) {
             Label("Helpful Tips", systemImage: "info.circle")
-                .font(.headline)
+                .font(.appHeadline)
 
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 10) {
                 TipRow(text: "Double-check that the Raspberry Pi stays powered and connected to your LAN.")
                 TipRow(text: "Update this URL if you move to a new network or change routers.")
                 TipRow(text: "Restrict access to trusted devices and keep your token secure.")
             }
         }
-        .padding(24)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.appBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 4)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
     }
 }
 
@@ -761,9 +761,10 @@ private struct TipRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(.green)
+                .foregroundStyle(Color.appSuccess)
+                .accessibilityHidden(true)
             Text(text)
-                .font(.subheadline)
+                .font(.appBody)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }

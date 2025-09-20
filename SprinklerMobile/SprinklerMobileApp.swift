@@ -27,6 +27,6 @@ private struct RootView: View {
                     Label("Settings", systemImage: "gear")
                 }
         }
-        .tint(.green)
+        .tint(Color.appAccentPrimary)
     }
 }

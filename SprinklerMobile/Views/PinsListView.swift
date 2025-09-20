@@ -37,12 +37,12 @@ struct PinsListView: View {
                 if totalPinCount == 0 {
                     VStack(spacing: 8) {
                         Image(systemName: "square.stack.3d.down.forward")
-                            .font(.largeTitle)
+                            .font(.system(.largeTitle, design: .rounded))
                             .foregroundStyle(.secondary)
                         Text("No Pins Available")
-                            .font(.headline)
+                            .font(.appHeadline)
                         Text("Pull to refresh once the controller is reachable.")
-                            .font(.caption)
+                            .font(.appCaption)
                             .foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity, alignment: .center)
@@ -50,12 +50,12 @@ struct PinsListView: View {
                 } else {
                     VStack(spacing: 8) {
                         Image(systemName: "eye.slash")
-                            .font(.largeTitle)
+                            .font(.system(.largeTitle, design: .rounded))
                             .foregroundStyle(.secondary)
                         Text("No Active Pins")
-                            .font(.headline)
+                            .font(.appHeadline)
                         Text("Enable pins from Settings to manage them here.")
-                            .font(.caption)
+                            .font(.appCaption)
                             .foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity, alignment: .center)
@@ -65,12 +65,12 @@ struct PinsListView: View {
                 if enabledPins.isEmpty {
                     VStack(spacing: 8) {
                         Image(systemName: "bolt.horizontal.circle")
-                            .font(.largeTitle)
+                            .font(.system(.largeTitle, design: .rounded))
                             .foregroundStyle(.secondary)
                         Text("No Enabled Pins")
-                            .font(.headline)
+                            .font(.appHeadline)
                         Text("Enable pins from Settings to control them here.")
-                            .font(.caption)
+                            .font(.appCaption)
                             .foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity, alignment: .center)
@@ -85,7 +85,7 @@ struct PinsListView: View {
                 if !hiddenPins.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Hidden Pins")
-                            .font(.caption)
+                            .font(.appCaption)
                             .foregroundStyle(.secondary)
                             .padding(.top, enabledPins.isEmpty ? 0 : 12)
 
