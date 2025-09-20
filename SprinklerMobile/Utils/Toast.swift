@@ -46,7 +46,6 @@ struct ToastModifier: ViewModifier {
             if let toast {
                 ToastView(state: toast)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .animation(.easeInOut(duration: 0.2), value: toast)
             }
         }
     }

@@ -378,6 +378,7 @@ private struct RainDelayDurationEditor: View {
                     TextField("Hours", value: $hours, format: .number)
                         .keyboardType(.numberPad)
                         .focused($isTextFieldFocused)
+                        .id(textFieldID)
                     quickPickRow
                 } footer: {
                     Text("All watering schedules will remain paused for the selected duration.")
@@ -419,6 +420,14 @@ private struct RainDelayDurationEditor: View {
         }
     }
 
+    /// Stable identifier used to keep the duration text field responsive when keyboard events occur.
+    private var textFieldID: String {
+        switch mode {
+        case .configure: return "manual-rain-delay-configure"
+        case .activate: return "manual-rain-delay-activate"
+        }
+    }
+
     private var durationText: String {
         "\(hours) \(hours == 1 ? "Hour" : "Hours")"
     }
@@ -440,3 +449,4 @@ private struct RainDelayDurationEditor: View {
         }
     }
 }
+

@@ -257,6 +257,7 @@ private struct ConnectionSettingsCard: CardView {
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .accessibilityLabel("Controller address")
                     .accessibilityHint("Enter the Raspberry Pi host name or IP address.")
+                    .id("controller-base-url")
 
                 HStack(spacing: 12) {
                     Button(action: onCommit) {
@@ -421,6 +422,7 @@ private struct RainDelaySettingsCard: CardView {
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .accessibilityLabel("ZIP code")
                     .accessibilityHint("Enter the ZIP code used for rain forecasts.")
+                    .id("rain-settings-zip")
 
                 TextField("Rain threshold (%)", text: thresholdBinding)
                     .keyboardType(.numberPad)
@@ -433,6 +435,7 @@ private struct RainDelaySettingsCard: CardView {
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .accessibilityLabel("Rain threshold percentage")
                     .accessibilityHint("Enter the forecast chance that should trigger a rain delay.")
+                    .id("rain-settings-threshold")
             }
 
             VStack(alignment: .leading, spacing: 6) {

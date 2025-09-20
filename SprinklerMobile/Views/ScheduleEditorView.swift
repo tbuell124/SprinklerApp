@@ -71,6 +71,7 @@ struct ScheduleEditorView: View {
     private var detailsSection: some View {
         Section("Details") {
             TextField("Name", text: $draft.name)
+                .id("schedule-name-\(draft.id)")
             DatePicker("Start Time",
                        selection: $timeSelection,
                        displayedComponents: .hourAndMinute)

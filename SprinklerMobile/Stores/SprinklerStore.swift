@@ -2,6 +2,7 @@ import Foundation
 import Combine
 import Network
 import Darwin
+import SwiftUI
 
 @MainActor
 final class SprinklerStore: ObservableObject {
@@ -980,11 +981,15 @@ final class SprinklerStore: ObservableObject {
     }
 
     private func showToast(message: String, style: ToastState.Style) {
-        toast = ToastState(message: message, style: style)
+        withAnimation(.easeInOut(duration: 0.2)) {
+            toast = ToastState(message: message, style: style)
+        }
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(2.5))
             if toast?.message == message {
-                toast = nil
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    toast = nil
+                }
             }
         }
     }

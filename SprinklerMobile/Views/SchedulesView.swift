@@ -96,6 +96,7 @@ struct SchedulesView: View {
                 if isAddingGroup {
                     Section("New Group") {
                         TextField("Group name", text: $newGroupName)
+                            .id("schedule-new-group-name")
                         Button("Create") {
                             let trimmed = newGroupName.trimmingCharacters(in: .whitespacesAndNewlines)
                             guard !trimmed.isEmpty else { return }
