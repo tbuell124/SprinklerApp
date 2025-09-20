@@ -35,6 +35,7 @@ struct DashboardView: View {
 
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 24) {
+                        connectivityStatusBadge
                         ledStatusCard
                         DashboardCard(title: "Schedule Summary") {
                             ScheduleSummaryView()
@@ -60,6 +61,13 @@ struct DashboardView: View {
         }
         .environment(\.editMode, $pinListEditMode)
         .toast(state: toastBinding)
+    }
+
+    /// High level controller connectivity indicator shown at the top of the dashboard.
+    private var connectivityStatusBadge: some View {
+        ConnectivityBadgeView(state: connectivityStore.state,
+                               isLoading: connectivityStore.isChecking || sprinklerStore.isRefreshing)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// Section containing a compact grid of GPIO indicators along with controller and rain status lights.
