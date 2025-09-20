@@ -37,4 +37,15 @@ enum ControllerConfig {
 
     /// String representation of the canonical base URL used by default in the UI.
     static var defaultBaseAddress: String { defaultBaseURL.absoluteString }
+
+    /// Canonical documentation URL that surfaces the README instructions within the app.
+    static var documentationURL: URL {
+        // The URL is stored as a computed property to avoid static initialization crashes
+        // if the string ever becomes invalid. Failing fast in development keeps the
+        // application honest without impacting release stability.
+        guard let url = URL(string: "https://github.com/tybuell/SprinklerApp/blob/main/README.md") else {
+            preconditionFailure("Invalid documentation URL configuration")
+        }
+        return url
+    }
 }

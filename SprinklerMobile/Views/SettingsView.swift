@@ -12,6 +12,14 @@ private let settingsRelativeFormatter: RelativeDateTimeFormatter = {
     return formatter
 }()
 
+/// Absolute formatter that provides a precise timestamp alongside relative descriptions.
+private let settingsAbsoluteFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.dateStyle = .medium
+    formatter.timeStyle = .short
+    return formatter
+}()
+
 /// Settings screen redesigned around card-based sections for clarity and modern aesthetics.
 struct SettingsView: View {
     @EnvironmentObject private var store: ConnectivityStore
@@ -62,6 +70,10 @@ struct SettingsView: View {
                                               totalPins: sprinklerStore.pins.count)
                         }
                         .buttonStyle(.plain)
+
+                        SystemInfoCard(metadata: AppMetadata.current,
+                                       lastConnected: store.lastSuccessfulConnectionDate,
+                                       documentationURL: ControllerConfig.documentationURL)
 
                         HelpfulSettingsTipsCard()
                     }
@@ -767,6 +779,96 @@ private struct ConnectionLogsView: View {
                 }
             }
         }
+    }
+}
+
+/// Aggregates metadata about the current build and provides quick documentation access.
+private struct SystemInfoCard: CardView {
+    let metadata: AppMetadata
+    let lastConnected: Date?
+    let documentationURL: URL
+
+    var cardConfiguration: CardConfiguration { .subtle }
+
+    private var lastConnectedDescription: some View {
+        Group {
+            if let lastConnected {
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(settingsAbsoluteFormatter.string(from: lastConnected))
+                        .font(.appBody)
+                        .foregroundStyle(.primary)
+                    Text(settingsRelativeFormatter.localizedString(for: lastConnected, relativeTo: .now))
+                        .font(.appCaption)
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Text("No successful connections yet")
+                    .font(.appBody)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .trailing)
+        .multilineTextAlignment(.trailing)
+    }
+
+    var cardBody: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Label("System & App Info", systemImage: "gearshape")
+                .font(.appHeadline)
+
+            VStack(alignment: .leading, spacing: 12) {
+                LabeledContent {
+                    Text(metadata.version)
+                        .font(.appBody)
+                        .foregroundStyle(.primary)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                } label: {
+                    Text("App Version")
+                        .font(.appCaption)
+                        .foregroundStyle(.secondary)
+                }
+
+                LabeledContent {
+                    Text(metadata.build)
+                        .font(.appBody)
+                        .foregroundStyle(.primary)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                } label: {
+                    Text("Build Number")
+                        .font(.appCaption)
+                        .foregroundStyle(.secondary)
+                }
+
+                LabeledContent {
+                    lastConnectedDescription
+                } label: {
+                    Text("Last Connected")
+                        .font(.appCaption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Link(destination: documentationURL) {
+                Label("Open README Instructions", systemImage: "book.fill")
+                    .font(.appButton)
+            }
+            .accessibilityHint("Opens the sprinkler setup instructions in Safari.")
+        }
+        .accessibilityElement(children: .contain)
+    }
+}
+
+/// Captures application metadata surfaced in the system information card.
+private struct AppMetadata {
+    let version: String
+    let build: String
+
+    /// Snapshot of the bundle metadata for the running build.
+    static var current: AppMetadata {
+        let bundle = Bundle.main
+        let version = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
+        let build = bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
+        return AppMetadata(version: version, build: build)
     }
 }
 
