@@ -159,6 +159,11 @@ extension Font {
         .system(.largeTitle, design: .rounded).weight(.bold)
     }
 
+    /// Prominent title used for feature highlights and hero sections.
+    static var appTitle: Font {
+        .system(.title2, design: .rounded).weight(.bold)
+    }
+
     /// Primary headings for sections.
     static var appHeadline: Font {
         .system(.title3, design: .rounded).weight(.semibold)
@@ -179,9 +184,19 @@ extension Font {
         .system(.body, design: .monospaced)
     }
 
+    /// Supporting footnote copy.
+    static var appFootnote: Font {
+        .system(.footnote, design: .rounded)
+    }
+
     /// Caption text for annotations and helper copy.
     static var appCaption: Font {
         .system(.caption, design: .rounded)
+    }
+
+    /// Secondary caption for dense metadata.
+    static var appCaption2: Font {
+        .system(.caption2, design: .rounded)
     }
 
     /// Button text with increased weight for prominence.
