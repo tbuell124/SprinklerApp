@@ -370,7 +370,7 @@ private struct RainDelayDurationEditor: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Delay Length") {
+                Section {
                     Stepper(value: $hours, in: validRange) {
                         HStack {
                             Text("Duration")
@@ -387,6 +387,8 @@ private struct RainDelayDurationEditor: View {
                         .focused($isTextFieldFocused)
                         .id(textFieldID)
                     quickPickRow
+                } header: {
+                    Text("Delay Length")
                 } footer: {
                     Text("All watering schedules will remain paused for the selected duration.")
                         .font(.appCaption)
