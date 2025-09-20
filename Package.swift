@@ -28,6 +28,7 @@ let package = Package(
                 "Views",
                 "SprinklerMobileApp.swift",
                 "Stores/SprinklerStore.swift",
+                "Stores/PinCatalogMerger.swift",
                 "Data/APIClient.swift",
                 "Utils/Color+Theme.swift",
                 "Utils/Theme.swift",
