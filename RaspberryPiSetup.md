@@ -170,6 +170,7 @@ Paste the backend source code (see Section 5.3), save (`Ctrl+O`), and exit (`Ctr
 Below is a complete FastAPI app that controls GPIO pins through `pigpio`. Copy/paste it exactly.
 
 ```python
+# FILE: sprinkler_service.py   # removed stray double-quote to avoid SyntaxError
 """Sprinkler backend service exposing authenticated HTTP endpoints.
 
 This module is designed for Raspberry Pi deployments that control 24VAC sprinkler
@@ -461,13 +462,18 @@ After the service is running (whether manually or via systemd) double-check that
    ```
 2. Query the backend locally on the Pi:
    ```bash
-   curl -s http://127.0.0.1:5000/api/status | jq
+   TOKEN='<your token>'
+   curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8000/status | jq
+   # (if you keep compat routes below, /api/status will also work)
    ```
    The `"pins"` field should list `4,5,6,9,10,11,12,13,16,17,19,20,21,22,26,27` (order may differ, but the set must match).
 3. Spot-check a relay to confirm it toggles correctly:
    ```bash
-   curl -s -X POST http://127.0.0.1:5000/api/pin/4/on | jq
-   curl -s -X POST http://127.0.0.1:5000/api/pin/4/off | jq
+   curl -s -X POST -H "Authorization: Bearer $TOKEN" \
+     -H 'Content-Type: application/json' -d '{"minutes":1}' \
+     http://127.0.0.1:8000/zone/on/1 | jq
+   curl -s -X POST -H "Authorization: Bearer $TOKEN" \
+     http://127.0.0.1:8000/zone/off/1 | jq
    ```
    Repeat for a few other pins (for example `27` and `12`). Any pin outside the allow list should return a 404.
 
@@ -478,7 +484,7 @@ After the service is running (whether manually or via systemd) double-check that
 Back on the Pi:
 
 ```bash
-sudo tee /etc/systemd/system/sprinkler.service >/dev/null <<'UNIT'
+sudo tee /etc/systemd/system/sprinkler-api.service >/dev/null <<'UNIT'
 [Unit]
 Description=Sprinkler HTTP Controller
 After=network-online.target pigpiod.service
@@ -506,20 +512,20 @@ Set log file permissions and enable the service:
 sudo touch /var/log/sprinkler.log
 sudo chown tybuell:tybuell /var/log/sprinkler.log
 sudo systemctl daemon-reload
-sudo systemctl enable sprinkler.service
-sudo systemctl start sprinkler.service
-sudo systemctl status sprinkler.service --no-pager
+sudo systemctl enable sprinkler-api.service
+sudo systemctl start sprinkler-api.service
+sudo systemctl status sprinkler-api.service --no-pager
 ```
 
 Check the live logs:
 
 ```bash
-sudo journalctl -u sprinkler.service -f
+sudo journalctl -u sprinkler-api.service -f
 ```
 
 Press `Ctrl+C` to exit the log tail.
 
-> When updating the backend later, redeploy your code (via `scp` or Git pull) and restart with `sudo systemctl restart sprinkler.service`.
+> When updating the backend later, redeploy your code (via `scp` or Git pull) and restart with `sudo systemctl restart sprinkler-api.service`.
 
 ---
 
@@ -560,7 +566,7 @@ You should see the Pi broadcast the service. Stop with `Ctrl+C`.
 2. Open **Settings → Controller** within the app and set the controller URL to `http://sprinkler.local:8000`.
 3. Enter the API token that matches `SPRINKLER_API_TOKEN`.
 4. Use the discovery flow if available; it will prefer the Bonjour broadcast configured above.
-5. Toggle a zone and confirm the relay clicks. Watch the Pi logs (`sudo journalctl -u sprinkler.service -f`) to confirm requests are authenticated.
+5. Toggle a zone and confirm the relay clicks. Watch the Pi logs (`sudo journalctl -u sprinkler-api.service -f`) to confirm requests are authenticated.
 
 ---
 
@@ -575,16 +581,16 @@ scp localfile.txt tybuell@sprinkler:/srv/sprinkler-controller
 # SSH into Pi
 ssh tybuell@sprinkler
 
-# Start and enable sprinkler service
-sudo systemctl enable sprinkler.service
-sudo systemctl start sprinkler.service
-sudo systemctl status sprinkler.service
+# Start and enable sprinkler API service
+sudo systemctl enable sprinkler-api.service
+sudo systemctl start sprinkler-api.service
+sudo systemctl status sprinkler-api.service
 
 # Restart after updates
-sudo systemctl restart sprinkler.service
+sudo systemctl restart sprinkler-api.service
 
 # Tail logs
-sudo journalctl -u sprinkler.service -f
+sudo journalctl -u sprinkler-api.service -f
 ```
 
 ---
