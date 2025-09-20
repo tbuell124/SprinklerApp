@@ -639,6 +639,7 @@ private struct PinControlRow: View {
                     .submitLabel(.done)
                     .accessibilityLabel("Run duration for \(pin.displayName)")
                     .accessibilityHint("Enter the number of minutes to run this zone.")
+                    .id("pin-duration-\(pin.id)")
 
                 Button("Start") {
                     if let minutes = minutesValue, minutes > 0 {

@@ -8,6 +8,7 @@ struct PinSettingsView: View {
     @State private var lastFocusedPin: Int?
     @State private var showDisableConfirmation = false
     @FocusState private var focusedField: Int?
+    @State private var pinsSyncWorkItem: DispatchWorkItem?
 
     private var pins: [PinDTO] {
         store.pins
@@ -19,14 +20,22 @@ struct PinSettingsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { EditButton() }
             .onAppear { syncDrafts(force: true) }
-            .onChange(of: store.pins, initial: false) { _, _ in syncDrafts(force: false) }
+            .onChange(of: store.pins, initial: false) { _, _ in
+                pinsSyncWorkItem?.cancel()
+                let workItem = DispatchWorkItem { syncDrafts(force: false) }
+                pinsSyncWorkItem = workItem
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: workItem)
+            }
             .onChange(of: focusedField, initial: false) { _, newFocus in
                 if let lastFocusedPin, lastFocusedPin != newFocus {
                     persistDraft(for: lastFocusedPin)
                 }
                 lastFocusedPin = newFocus
             }
-            .onDisappear { commitAllDrafts() }
+            .onDisappear {
+                pinsSyncWorkItem?.cancel()
+                commitAllDrafts()
+            }
             .alert("Disable pin?", isPresented: $showDisableConfirmation, presenting: pinPendingDisable) { pin in
                 Button("Disable", role: .destructive) {
                     store.setPinEnabled(pin, isEnabled: false)
@@ -139,6 +148,7 @@ private struct PinSettingsRowView: View {
                             onSubmit: onSubmit,
                             pinNumber: pin.pin
                         )
+                        .id("pin-name-\(pin.id)")
 
                     PinSettingsCounterText(value: pin.pin)
                 }
