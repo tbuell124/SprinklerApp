@@ -6,6 +6,13 @@ xcuserdata/
 DerivedData/
 build/
 .build/
+.swiftpm/
+
+# Swift Package Manager dependency resolution
+Package.resolved
+
+# Playgrounds and other transient developer artifacts
+*.playground
 
 # macOS metadata files
 .DS_Store
