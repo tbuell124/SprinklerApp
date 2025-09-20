@@ -14,9 +14,15 @@ final class PinCatalogMergerTests: XCTestCase {
 
         let merged = PinCatalogMerger.merge(current: current, remote: remote)
 
-        XCTAssertEqual(merged.map(\.pin), [12, 16])
-        XCTAssertEqual(merged.map { $0.name }, ["Front Yard", "Back Yard"])
-        XCTAssertEqual(merged.map { $0.isActive }, [true, false])
+        XCTAssertEqual(merged.count, PinDTO.sprinklerSafeOutputPins.count)
+        XCTAssertEqual(merged.prefix(2).map(\.pin), [12, 16])
+        XCTAssertEqual(merged.prefix(2).map { $0.name }, ["Front Yard", "Back Yard"])
+        XCTAssertEqual(merged.prefix(2).map { $0.isActive }, [true, false])
+
+        let appended = merged.dropFirst(2)
+        XCTAssertFalse(appended.contains { $0.isEnabled ?? true })
+        let expectedRemainingPins = Set(PinDTO.sprinklerSafeOutputPins).subtracting([12, 16])
+        XCTAssertEqual(Set(appended.map(\.pin)), expectedRemainingPins)
     }
 
     func testMergeFallsBackToExistingWhenRemoteMissing() {
@@ -44,10 +50,13 @@ final class PinCatalogMergerTests: XCTestCase {
         ]
 
         let merged = PinCatalogMerger.merge(current: current, remote: remote)
-        XCTAssertEqual(merged.count, 1)
+        XCTAssertEqual(merged.count, PinDTO.sprinklerSafeOutputPins.count)
         XCTAssertEqual(merged.first?.pin, 12)
         XCTAssertEqual(merged.first?.name, "Custom Name")
         XCTAssertEqual(merged.first?.isActive, true)
         XCTAssertEqual(merged.first?.isEnabled, false)
+
+        let appended = merged.dropFirst()
+        XCTAssertTrue(appended.allSatisfy { ($0.isEnabled ?? false) == false })
     }
 }

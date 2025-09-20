@@ -26,23 +26,51 @@ struct PinCatalogMerger {
         }
 
         let existingByPin = Dictionary(uniqueKeysWithValues: current.map { ($0.pin, $0) })
+        let defaultCatalog = PinDTO.makeDefaultSprinklerPins()
+        let defaultByPin = Dictionary(uniqueKeysWithValues: defaultCatalog.map { ($0.pin, $0) })
 
-        return remote.map { remotePin in
+        let mergedRemotePins = remote.map { remotePin -> PinDTO in
             var merged = remotePin
 
+            // Preserve the latest customised label the user may have applied.
             if merged.name == nil, let existingName = existingByPin[remotePin.pin]?.name {
                 merged.name = existingName
             }
 
+            // Maintain the toggle state the user saw previously if the controller omitted it.
             if merged.isEnabled == nil, let existingEnabled = existingByPin[remotePin.pin]?.isEnabled {
                 merged.isEnabled = existingEnabled
             }
 
+            // Carry forward any in-progress watering state we were already displaying.
             if merged.isActive == nil, let existingActive = existingByPin[remotePin.pin]?.isActive {
                 merged.isActive = existingActive
             }
 
             return merged
         }
+
+        let remotePins = Set(mergedRemotePins.map(\.pin))
+
+        let placeholderPins: [PinDTO] = defaultCatalog
+            .filter { !remotePins.contains($0.pin) }
+            .map { defaultPin in
+                var placeholder = existingByPin[defaultPin.pin] ?? defaultPin
+
+                // Ensure the UI always renders a friendly label, falling back to the
+                // wiring catalogue name when a custom value is unavailable.
+                if let defaultName = defaultByPin[defaultPin.pin]?.name, (placeholder.name ?? "").isEmpty {
+                    placeholder.name = defaultName
+                }
+
+                // Missing pins should be treated as hidden/inactive so the counters
+                // accurately reflect how many zones are actually enabled.
+                placeholder.isEnabled = false
+                placeholder.isActive = false
+
+                return placeholder
+            }
+
+        return mergedRemotePins + placeholderPins
     }
 }
