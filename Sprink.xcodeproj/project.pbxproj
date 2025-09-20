@@ -65,6 +65,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+               62D0BB102F0A1B2000000002 /* GenerateAppIcons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerateAppIcons.swift; sourceTree = "<group>"; };
 		620874512E7D04C10062F269 /* SprinklerConnectivityTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SprinklerConnectivityTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		6208747C2E7DF2C00062F269 /* Color+Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+Theme.swift"; sourceTree = "<group>"; };
 		621360EF2E7C8AE30094E4D2 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
@@ -135,17 +136,26 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-                6251FB392E7C7D3F001856FD = {
-                        isa = PBXGroup;
-                        children = (
-                                6251FB5E2E7C7DCF001856FD /* Package.swift */,
-                                6251FB5F2E7C7DCF001856FD /* README.md */,
-                                6251FB892E7C7DCF001856FD /* SprinklerMobile */,
-                                6251FB8E2E7C7DCF001856FD /* Tests */,
-                                6251FB432E7C7D3F001856FD /* Products */,
-                        );
-                        sourceTree = "<group>";
-                };
+               6251FB392E7C7D3F001856FD = {
+                       isa = PBXGroup;
+                       children = (
+                               6251FB5E2E7C7DCF001856FD /* Package.swift */,
+                               6251FB5F2E7C7DCF001856FD /* README.md */,
+                               62D0BB112F0A1B2000000002 /* Scripts */,
+                               6251FB892E7C7DCF001856FD /* SprinklerMobile */,
+                               6251FB8E2E7C7DCF001856FD /* Tests */,
+                               6251FB432E7C7D3F001856FD /* Products */,
+                       );
+                       sourceTree = "<group>";
+               };
+               62D0BB112F0A1B2000000002 /* Scripts */ = {
+                       isa = PBXGroup;
+                       children = (
+                               62D0BB102F0A1B2000000002 /* GenerateAppIcons.swift */,
+                       );
+                       path = Scripts;
+                       sourceTree = "<group>";
+               };
 		6251FB432E7C7D3F001856FD /* Products */ = {
 			isa = PBXGroup;
 			children = (
@@ -310,14 +320,15 @@
 			productReference = 620874512E7D04C10062F269 /* SprinklerConnectivityTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		6251FB412E7C7D3F001856FD /* Sprink */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 6251FB4D2E7C7D42001856FD /* Build configuration list for PBXNativeTarget "Sprink" */;
-			buildPhases = (
-				6251FB3E2E7C7D3F001856FD /* Sources */,
-				6251FB3F2E7C7D3F001856FD /* Frameworks */,
-				6251FB402E7C7D3F001856FD /* Resources */,
-			);
+               6251FB412E7C7D3F001856FD /* Sprink */ = {
+                       isa = PBXNativeTarget;
+                       buildConfigurationList = 6251FB4D2E7C7D42001856FD /* Build configuration list for PBXNativeTarget "Sprink" */;
+                       buildPhases = (
+                               62D0BB122F0A1B2000000002 /* Generate App Icons */,
+                               6251FB3E2E7C7D3F001856FD /* Sources */,
+                               6251FB3F2E7C7D3F001856FD /* Frameworks */,
+                               6251FB402E7C7D3F001856FD /* Resources */,
+                       );
 			buildRules = (
 			);
 			dependencies = (
@@ -386,6 +397,27 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+               62D0BB122F0A1B2000000002 /* Generate App Icons */ = {
+                       isa = PBXShellScriptBuildPhase;
+                       buildActionMask = 2147483647;
+                       files = (
+                       );
+                       inputFileListPaths = (
+                       );
+                       inputPaths = (
+                       );
+                       name = "Generate App Icons";
+                       outputFileListPaths = (
+                       );
+                       outputPaths = (
+                       );
+                       runOnlyForDeploymentPostprocessing = 0;
+                       shellPath = /bin/sh;
+                       shellScript = "SCRIPT_DIR=\"${PROJECT_DIR}/Scripts\"\nICONSET_PATH=\"${PROJECT_DIR}/SprinklerMobile/Resources/Assets.xcassets/AppIcon.appiconset\"\nSWIFT_TOOL=\"$(/usr/bin/xcrun --find swift)\"\n\nif [ ! -x \"${SWIFT_TOOL}\" ]; then\n  echo \"Unable to locate Swift toolchain\"\n  exit 1\nfi\n\"${SWIFT_TOOL}\" \"${SCRIPT_DIR}/GenerateAppIcons.swift\" \"${ICONSET_PATH}\"";
+               };
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		6208744D2E7D04C10062F269 /* Sources */ = {
