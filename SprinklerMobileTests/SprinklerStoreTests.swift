@@ -9,7 +9,7 @@ final class SprinklerStoreTests: XCTestCase {
             PinDTO(pin: 4, name: "Front Lawn", isActive: nil, isEnabled: true),
             PinDTO(pin: 5, name: "Back Lawn", isActive: nil, isEnabled: true)
         ]
-        let schedule = ScheduleDTO(
+        let scheduleDTO = ScheduleDTO(
             id: "sequence-midnight",
             name: "Overnight Soak",
             startTime: "23:30",
@@ -22,6 +22,7 @@ final class SprinklerStoreTests: XCTestCase {
             ]
         )
 
+        let schedule = Schedule(dto: scheduleDTO, defaultPins: pins)
         store.configureForTesting(pins: pins, schedules: [schedule])
 
         var calendar = Calendar(identifier: .gregorian)
@@ -45,7 +46,7 @@ final class SprinklerStoreTests: XCTestCase {
             PinDTO(pin: 5, name: "Back Lawn", isActive: nil, isEnabled: true),
             PinDTO(pin: 6, name: "Side Yard", isActive: nil, isEnabled: false)
         ]
-        let legacySchedule = ScheduleDTO(
+        let legacyDTO = ScheduleDTO(
             id: "legacy",
             name: "Legacy",
             startTime: "06:00",
@@ -55,6 +56,7 @@ final class SprinklerStoreTests: XCTestCase {
             sequence: nil
         )
 
+        let legacySchedule = Schedule(dto: legacyDTO, defaultPins: pins)
         store.configureForTesting(pins: pins, schedules: [legacySchedule])
 
         var calendar = Calendar(identifier: .gregorian)

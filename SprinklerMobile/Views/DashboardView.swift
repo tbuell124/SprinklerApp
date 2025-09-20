@@ -412,7 +412,7 @@ private struct ScheduleSummaryRow: View {
             if !activeNames.isEmpty {
                 secondary.append("Zones: \(activeNames.joined(separator: ", "))")
             }
-            return (run.schedule.name ?? "Schedule", secondary)
+            return (run.schedule.sanitizedName ?? "Schedule", secondary)
         }
 
         if !activeNames.isEmpty {
@@ -424,7 +424,7 @@ private struct ScheduleSummaryRow: View {
 
     private func upcomingRunInfo() -> (primary: String, secondary: [String])? {
         guard let run else { return nil }
-        return (run.schedule.name ?? "Schedule", [detailText(for: run)])
+        return (run.schedule.sanitizedName ?? "Schedule", [detailText(for: run)])
     }
 
     private func detailText(for run: SprinklerStore.ScheduleRun) -> String {

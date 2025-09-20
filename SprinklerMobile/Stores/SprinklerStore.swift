@@ -33,7 +33,7 @@ final class SprinklerStore: ObservableObject {
     }
 
     struct ScheduleRun: Identifiable, Equatable {
-        let schedule: ScheduleDTO
+        let schedule: Schedule
         let startDate: Date
         let endDate: Date
 
@@ -67,7 +67,7 @@ final class SprinklerStore: ObservableObject {
     var nextScheduleRun: ScheduleRun? {
         scheduleTimeline(relativeTo: Date()).next
     }
-    @Published private(set) var schedules: [ScheduleDTO] = []
+    @Published private(set) var schedules: [Schedule] = []
     @Published private(set) var rain: RainDTO?
     @Published private(set) var rainAutomationEnabled: Bool = false
     @Published var rainSettingsZip: String = ""
@@ -99,6 +99,15 @@ final class SprinklerStore: ObservableObject {
     private let defaults: UserDefaults
     private let keychain: KeychainStoring
     private let statusCache: StatusCache
+    private let schedulePersistence: SchedulePersistence
+    private var pendingScheduleDeletionIds: Set<String> = []
+    private var pendingScheduleReorder: [String]?
+
+    private enum ScheduleSyncOutcome {
+        case synced
+        case deferred
+        case failed(Error)
+    }
     private lazy var bonjourDiscovery: BonjourServiceDiscovery = {
         BonjourServiceDiscovery(
             serviceType: "_sprinkler._tcp.",
@@ -129,6 +138,11 @@ final class SprinklerStore: ObservableObject {
         self.keychain = keychain
         self.client = client
         self.statusCache = StatusCache()
+        self.schedulePersistence = SchedulePersistence()
+        let persistedSchedules = schedulePersistence.load()
+        self.schedules = persistedSchedules.schedules
+        self.pendingScheduleDeletionIds = Set(persistedSchedules.pendingDeletionIds)
+        self.pendingScheduleReorder = persistedSchedules.pendingReorder
         let storedManualDelay = userDefaults.integer(forKey: manualRainDelayKey)
         if storedManualDelay > 0 {
             self.manualRainDelayHours = storedManualDelay
@@ -526,66 +540,66 @@ final class SprinklerStore: ObservableObject {
     }
 
     func upsertSchedule(_ draft: ScheduleDraft) {
-        Task {
-            do {
-                if schedules.contains(where: { $0.id == draft.id }) {
-                    try await client.updateSchedule(id: draft.id, schedule: draft.payload)
-                } else {
-                    try await client.createSchedule(draft.payload)
-                }
-                await refresh()
-                await MainActor.run {
-                    showToast(message: "Schedule saved", style: .success)
-                }
-            } catch {
-                await MainActor.run {
-                    showToast(message: "Failed to save schedule", style: .error)
-                }
+        var schedule = draft.schedule
+        if let index = schedules.firstIndex(where: { $0.id == schedule.id }) {
+            schedule.lastSyncedAt = schedules[index].lastSyncedAt
+            schedules[index] = schedule
+        } else {
+            schedules.append(schedule)
+        }
+        pendingScheduleDeletionIds.remove(schedule.id)
+        persistSchedulesState()
+
+        Task { [weak self] in
+            guard let self else { return }
+            let outcome = await self.syncSchedulesWithController()
+            await MainActor.run {
+                self.showScheduleSyncToast(outcome: outcome,
+                                            successMessage: "Schedule saved",
+                                            offlineMessage: "Schedule saved locally. Will sync when connected.",
+                                            failureMessage: "Failed to save schedule")
             }
         }
     }
 
-    func deleteSchedule(_ schedule: ScheduleDTO) {
-        Task {
-            do {
-                try await client.deleteSchedule(id: schedule.id)
-                await refresh()
-                await MainActor.run {
-                    showToast(message: "Schedule deleted", style: .success)
-                }
-            } catch {
-                await MainActor.run {
-                    showToast(message: "Unable to delete schedule", style: .error)
-                }
+    func deleteSchedule(_ schedule: Schedule) {
+        schedules.removeAll { $0.id == schedule.id }
+        if schedule.lastSyncedAt != nil {
+            pendingScheduleDeletionIds.insert(schedule.id)
+        }
+        persistSchedulesState()
+
+        Task { [weak self] in
+            guard let self else { return }
+            let outcome = await self.syncSchedulesWithController()
+            await MainActor.run {
+                self.showScheduleSyncToast(outcome: outcome,
+                                            successMessage: "Schedule deleted",
+                                            offlineMessage: "Schedule removed locally. Will delete when connected.",
+                                            failureMessage: "Unable to delete schedule")
             }
         }
     }
 
-    func duplicateSchedule(_ schedule: ScheduleDTO) {
-        Task {
-            do {
-                let baseName = normalizedName(from: schedule.name) ?? "Schedule"
-                let duplicateName = baseName.isEmpty ? "Schedule Copy" : "\(baseName) Copy"
-                let sequence = schedule.resolvedSequence(defaultPins: pins)
-                let fallbackDuration = max(sequence.first?.durationMinutes ?? schedule.durationMinutes ?? 0, 0)
-                let payload = ScheduleWritePayload(name: duplicateName,
-                                                   durationMinutes: fallbackDuration,
-                                                   startTime: schedule.startTime ?? "06:00",
-                                                   days: (schedule.days?.isEmpty ?? true) ? nil : schedule.days,
-                                                   isEnabled: schedule.isEnabled ?? true,
-                                                   sequence: sequence.map { item in
-                                                       ScheduleWritePayload.Step(pin: item.pin,
-                                                                                  durationMinutes: max(item.durationMinutes, 0))
-                                                   })
-                try await client.createSchedule(payload)
-                await refresh()
-                await MainActor.run {
-                    showToast(message: "Schedule duplicated", style: .success)
-                }
-            } catch {
-                await MainActor.run {
-                    showToast(message: "Failed to duplicate schedule", style: .error)
-                }
+    func duplicateSchedule(_ schedule: Schedule) {
+        var copy = schedule
+        let baseName = normalizedName(from: schedule.name) ?? "Schedule"
+        let duplicateName = baseName.isEmpty ? "Schedule Copy" : "\(baseName) Copy"
+        copy.id = UUID().uuidString
+        copy.name = duplicateName
+        copy.lastModified = Date()
+        copy.lastSyncedAt = nil
+        schedules.append(copy)
+        persistSchedulesState()
+
+        Task { [weak self] in
+            guard let self else { return }
+            let outcome = await self.syncSchedulesWithController()
+            await MainActor.run {
+                self.showScheduleSyncToast(outcome: outcome,
+                                            successMessage: "Schedule duplicated",
+                                            offlineMessage: "Schedule copy saved locally. Will sync when connected.",
+                                            failureMessage: "Failed to duplicate schedule")
             }
         }
     }
@@ -594,14 +608,17 @@ final class SprinklerStore: ObservableObject {
         var reordered = schedules
         reordered.move(fromOffsets: offsets, toOffset: destination)
         schedules = reordered
-        Task {
-            do {
-                let order = reordered.map { $0.id }
-                try await client.reorderSchedules(order)
-            } catch {
-                await MainActor.run {
-                    showToast(message: "Failed to reorder schedules", style: .error)
-                }
+        pendingScheduleReorder = reordered.map { $0.id }
+        persistSchedulesState()
+
+        Task { [weak self] in
+            guard let self else { return }
+            let outcome = await self.syncSchedulesWithController()
+            await MainActor.run {
+                self.showScheduleSyncToast(outcome: outcome,
+                                            successMessage: "Schedule order updated",
+                                            offlineMessage: "Schedule order saved locally. Will sync when connected.",
+                                            failureMessage: "Failed to reorder schedules")
             }
         }
     }
@@ -688,7 +705,8 @@ final class SprinklerStore: ObservableObject {
     private func apply(status: StatusDTO) {
         let mergedPins = mergePinsWithCatalog(status.pins ?? [])
         assignIfDifferent(\SprinklerStore.pins, to: mergedPins)
-        assignIfDifferent(\SprinklerStore.schedules, to: status.schedules ?? [])
+        let remoteSchedules = (status.schedules ?? []).map { Schedule(dto: $0, defaultPins: mergedPins) }
+        mergeSchedulesWithRemote(remoteSchedules)
         assignIfDifferent(\SprinklerStore.rain, to: status.rain)
         syncRainSettings(from: status.rain)
         if let duration = status.rain?.durationHours, duration > 0 {
@@ -729,6 +747,138 @@ final class SprinklerStore: ObservableObject {
         // Append any non-catalog pins so the full server response remains visible.
         let sortedAdditionalPins = additionalPins.sorted { $0.pin < $1.pin }
         return catalogPins + sortedAdditionalPins
+    }
+
+    private func mergeSchedulesWithRemote(_ remoteSchedules: [Schedule]) {
+        let now = Date()
+        var merged: [String: Schedule] = [:]
+        var localById = Dictionary(uniqueKeysWithValues: schedules.map { ($0.id, $0) })
+
+        for remote in remoteSchedules {
+            var normalized = remote
+            normalized.lastModified = now
+            normalized.lastSyncedAt = now
+            if var local = localById.removeValue(forKey: remote.id) {
+                if local.needsSync {
+                    merged[local.id] = local
+                    continue
+                }
+            }
+            if !pendingScheduleDeletionIds.contains(normalized.id) {
+                merged[normalized.id] = normalized
+            }
+        }
+
+        for remaining in localById.values {
+            if pendingScheduleDeletionIds.contains(remaining.id) {
+                continue
+            }
+            merged[remaining.id] = remaining
+        }
+
+        for deletion in pendingScheduleDeletionIds {
+            merged.removeValue(forKey: deletion)
+        }
+
+        let preferredOrder: [String]
+        if let pendingOrder = pendingScheduleReorder, !pendingOrder.isEmpty {
+            preferredOrder = pendingOrder
+        } else {
+            preferredOrder = remoteSchedules.map(\.id)
+        }
+
+        var ordered: [Schedule] = []
+        var consumed: Set<String> = []
+        for identifier in preferredOrder {
+            guard let schedule = merged[identifier], !consumed.contains(identifier) else { continue }
+            ordered.append(schedule)
+            consumed.insert(identifier)
+        }
+
+        if ordered.count != merged.count {
+            let remaining = merged.values.filter { !consumed.contains($0.id) }
+            let sorted = remaining.sorted { lhs, rhs in
+                if lhs.lastModified == rhs.lastModified {
+                    return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+                }
+                return lhs.lastModified > rhs.lastModified
+            }
+            ordered.append(contentsOf: sorted)
+        }
+
+        if schedules != ordered {
+            schedules = ordered
+            persistSchedulesState()
+        } else {
+            persistSchedulesState()
+        }
+    }
+
+    private func syncSchedulesWithController() async -> ScheduleSyncOutcome {
+        guard connectionStatus.isReachable else { return .deferred }
+
+        var encounteredError: Error?
+
+        if let pendingOrder = pendingScheduleReorder {
+            do {
+                try await client.reorderSchedules(pendingOrder)
+                pendingScheduleReorder = nil
+            } catch {
+                encounteredError = encounteredError ?? error
+            }
+        }
+
+        if !pendingScheduleDeletionIds.isEmpty {
+            let deletions = pendingScheduleDeletionIds
+            for identifier in deletions {
+                do {
+                    try await client.deleteSchedule(id: identifier)
+                    pendingScheduleDeletionIds.remove(identifier)
+                } catch {
+                    encounteredError = encounteredError ?? error
+                }
+            }
+        }
+
+        for index in schedules.indices {
+            var schedule = schedules[index]
+            guard schedule.needsSync else { continue }
+            do {
+                let payload = schedule.writePayload()
+                if schedule.lastSyncedAt == nil {
+                    try await client.createSchedule(payload)
+                } else {
+                    try await client.updateSchedule(id: schedule.id, schedule: payload)
+                }
+                let syncDate = Date()
+                schedule.lastSyncedAt = syncDate
+                schedule.lastModified = syncDate
+                schedules[index] = schedule
+            } catch {
+                encounteredError = encounteredError ?? error
+            }
+        }
+
+        persistSchedulesState()
+
+        if let encounteredError {
+            return .failed(encounteredError)
+        }
+        return .synced
+    }
+
+    private func showScheduleSyncToast(outcome: ScheduleSyncOutcome,
+                                        successMessage: String,
+                                        offlineMessage: String,
+                                        failureMessage: String) {
+        switch outcome {
+        case .synced:
+            showToast(message: successMessage, style: .success)
+        case .deferred:
+            showToast(message: offlineMessage, style: .info)
+        case .failed(let error):
+            showToast(message: toastMessage(for: error, defaultMessage: failureMessage), style: .error)
+        }
     }
 
     private func normalizedName(from name: String) -> String? {
@@ -811,13 +961,9 @@ final class SprinklerStore: ObservableObject {
         let startOfDay = calendar.startOfDay(for: date)
         var runs: [ScheduleRun] = []
 
-        for schedule in schedules where schedule.isEnabled ?? true {
-            guard let startTime = schedule.startTime,
-                  let timeComponents = parseTimeComponents(from: startTime) else { continue }
-            let sequence = schedule.resolvedSequence(defaultPins: pins)
-            let durationMinutes = sequence.reduce(0) { partialResult, item in
-                partialResult + max(item.durationMinutes, 0)
-            }
+        for schedule in schedules where schedule.isEnabled {
+            guard let timeComponents = parseTimeComponents(from: schedule.startTime) else { continue }
+            let durationMinutes = schedule.totalDurationMinutes
             let weekdays = resolvedWeekdays(for: schedule, calendar: calendar)
 
             for offset in -1...7 {
@@ -847,13 +993,13 @@ final class SprinklerStore: ObservableObject {
         return (hour, minute)
     }
 
-    private func resolvedWeekdays(for schedule: ScheduleDTO, calendar: Calendar) -> [Int] {
-        guard let days = schedule.days, !days.isEmpty else {
+    private func resolvedWeekdays(for schedule: Schedule, calendar: Calendar) -> [Int] {
+        guard !schedule.days.isEmpty else {
             return Array(1...7)
         }
 
         var result: Set<Int> = []
-        for day in days {
+        for day in schedule.days {
             if let value = weekdayIndex(for: day, calendar: calendar) {
                 result.insert(value)
             }
@@ -901,9 +1047,17 @@ final class SprinklerStore: ObservableObject {
     /// Persists the latest in-memory status so future launches (and offline
     /// sessions) reflect configuration changes such as renames immediately.
     @MainActor
+    private func persistSchedulesState() {
+        let state = SchedulePersistenceState(schedules: schedules,
+                                             pendingDeletionIds: Array(pendingScheduleDeletionIds),
+                                             pendingReorder: pendingScheduleReorder)
+        schedulePersistence.save(state)
+        persistCurrentStateSnapshot()
+    }
+
     private func persistCurrentStateSnapshot() {
         let snapshot = StatusDTO(pins: pins,
-                                 schedules: schedules,
+                                 schedules: schedules.map { $0.dto() },
                                  rain: rain,
                                  version: serverVersion,
                                  lastUpdated: Date())
@@ -1314,8 +1468,11 @@ final class StatusCache {
 
 extension SprinklerStore {
     /// Test-only helper that seeds deterministic pins and schedules without hitting the network.
-    func configureForTesting(pins: [PinDTO], schedules: [ScheduleDTO]) {
+    func configureForTesting(pins: [PinDTO], schedules: [Schedule]) {
         self.pins = pins
         self.schedules = schedules
+        pendingScheduleDeletionIds.removeAll()
+        pendingScheduleReorder = nil
+        persistSchedulesState()
     }
 }
