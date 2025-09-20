@@ -127,7 +127,11 @@ final class BonjourDiscoveryService: NSObject, BonjourDiscoveryProviding {
     private static func makeDevice(from service: NetService) -> DiscoveredDevice? {
         guard service.port > 0 else { return nil }
         let trimmedHost = service.hostName?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let host = trimmedHost?.isEmpty == false ? trimmedHost : nil
+        let host = trimmedHost
+            .flatMap { value -> String? in
+                let sanitized = URLNormalize.sanitizedHost(value)
+                return sanitized.isEmpty ? nil : sanitized
+            }
         let ip = Self.extractIPAddress(from: service.addresses)
 
         guard let identifierSource = host ?? ip else { return nil }

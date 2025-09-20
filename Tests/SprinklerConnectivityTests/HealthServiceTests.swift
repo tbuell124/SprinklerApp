@@ -9,7 +9,7 @@ import FoundationNetworking
 @testable import SprinklerConnectivity
 #endif
 
-final class HealthCheckerTests: XCTestCase {
+final class HealthServiceTests: XCTestCase {
     func testConnectedWhenServerReturnsValidJSON() async throws {
         let expectation = expectation(description: "Request received")
         let protocolClass = StubURLProtocol.self
@@ -24,7 +24,7 @@ final class HealthCheckerTests: XCTestCase {
             return (response, responseData)
         }
 
-        let checker = HealthChecker(session: makeSession(protocolClass: protocolClass))
+        let checker = HealthService(session: makeSession(protocolClass: protocolClass))
         let result = await checker.check(baseURL: URL(string: "http://example.com:8000")!)
 
         await fulfillment(of: [expectation], timeout: 1.0)
@@ -33,7 +33,7 @@ final class HealthCheckerTests: XCTestCase {
 
     func testOfflineWhenServerReturnsInvalidJSON() async {
         configureStub(statusCode: 200, data: Data("not-json".utf8))
-        let checker = HealthChecker(session: makeSession(protocolClass: StubURLProtocol.self))
+        let checker = HealthService(session: makeSession(protocolClass: StubURLProtocol.self))
 
         let result = await checker.check(baseURL: URL(string: "http://example.com")!)
 
@@ -46,7 +46,7 @@ final class HealthCheckerTests: XCTestCase {
 
     func testOfflineWhenServerReturnsUnrecognizedStatusField() async {
         configureStub(statusCode: 200, data: Data("{\"status\":\"mystery\"}".utf8))
-        let checker = HealthChecker(session: makeSession(protocolClass: StubURLProtocol.self))
+        let checker = HealthService(session: makeSession(protocolClass: StubURLProtocol.self))
 
         let result = await checker.check(baseURL: URL(string: "http://example.com")!)
 
@@ -59,7 +59,7 @@ final class HealthCheckerTests: XCTestCase {
 
     func testOfflineWhenControllerReportsUnhealthyStatus() async {
         configureStub(statusCode: 200, data: Data("{\"ok\":false}".utf8))
-        let checker = HealthChecker(session: makeSession(protocolClass: StubURLProtocol.self))
+        let checker = HealthService(session: makeSession(protocolClass: StubURLProtocol.self))
 
         let result = await checker.check(baseURL: URL(string: "http://example.com")!)
 
@@ -72,7 +72,7 @@ final class HealthCheckerTests: XCTestCase {
 
     func testOfflineWhenServerReturnsErrorStatus() async {
         configureStub(statusCode: 500, data: Data("{}".utf8))
-        let checker = HealthChecker(session: makeSession(protocolClass: StubURLProtocol.self))
+        let checker = HealthService(session: makeSession(protocolClass: StubURLProtocol.self))
 
         let result = await checker.check(baseURL: URL(string: "http://example.com")!)
 
@@ -108,7 +108,7 @@ final class HealthCheckerTests: XCTestCase {
             }
         }
 
-        let checker = HealthChecker(session: makeSession(protocolClass: StubURLProtocol.self))
+        let checker = HealthService(session: makeSession(protocolClass: StubURLProtocol.self))
         let result = await checker.check(baseURL: URL(string: "http://example.com")!)
 
         await fulfillment(of: [expectation], timeout: 1.0)
@@ -129,8 +129,63 @@ final class HealthCheckerTests: XCTestCase {
             return (response, Data("{\"ok\":true}".utf8))
         }
 
-        let checker = HealthChecker(session: makeSession(protocolClass: StubURLProtocol.self))
+        let checker = HealthService(session: makeSession(protocolClass: StubURLProtocol.self))
         let result = await checker.check(baseURL: URL(string: "http://example.com/api")!)
+
+        await fulfillment(of: [expectation], timeout: 1.0)
+        XCTAssertEqual(result, .connected)
+    }
+
+    func testApiStatusBaseFallsBackToRootStatus() async {
+        let expectation = expectation(description: "Both endpoints queried")
+        expectation.expectedFulfillmentCount = 2
+
+        var requestedPaths: [String] = []
+
+        StubURLProtocol.requestHandler = { request in
+            requestedPaths.append(request.url!.path)
+            expectation.fulfill()
+
+            if request.url!.path == "/api/status" {
+                let response = HTTPURLResponse(url: request.url!,
+                                               statusCode: 404,
+                                               httpVersion: nil,
+                                               headerFields: nil)!
+                return (response, Data("{}".utf8))
+            } else {
+                let response = HTTPURLResponse(url: request.url!,
+                                               statusCode: 200,
+                                               httpVersion: nil,
+                                               headerFields: ["Content-Type": "application/json"])!
+                return (response, Data("{\"ok\":true}".utf8))
+            }
+        }
+
+        let checker = HealthService(session: makeSession(protocolClass: StubURLProtocol.self))
+        let result = await checker.check(baseURL: URL(string: "http://example.com/api/status")!)
+
+        await fulfillment(of: [expectation], timeout: 1.0)
+        XCTAssertEqual(result, .connected)
+        XCTAssertEqual(requestedPaths, ["/api/status", "/status"])
+    }
+
+    func testAddsAuthorizationHeaderWhenTokenAvailable() async {
+        let expectation = expectation(description: "Authorization header attached")
+
+        StubURLProtocol.requestHandler = { request in
+            expectation.fulfill()
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer secret")
+            let response = HTTPURLResponse(url: request.url!,
+                                           statusCode: 200,
+                                           httpVersion: nil,
+                                           headerFields: ["Content-Type": "application/json"])!
+            return (response, Data("{\"ok\":true}".utf8))
+        }
+
+        let authentication = MockAuthenticationProvider(header: ("Authorization", "Bearer secret"))
+        let checker = HealthService(session: makeSession(protocolClass: StubURLProtocol.self),
+                                    authentication: authentication)
+        let result = await checker.check(baseURL: URL(string: "http://example.com")!)
 
         await fulfillment(of: [expectation], timeout: 1.0)
         XCTAssertEqual(result, .connected)
@@ -141,7 +196,7 @@ final class HealthCheckerTests: XCTestCase {
             throw URLError(.timedOut)
         }
 
-        let checker = HealthChecker(session: makeSession(protocolClass: StubURLProtocol.self))
+        let checker = HealthService(session: makeSession(protocolClass: StubURLProtocol.self))
         let result = await checker.check(baseURL: URL(string: "http://example.com")!)
 
         if case let .offline(description) = result {
@@ -195,6 +250,19 @@ final class StubURLProtocol: URLProtocol {
 
     override func stopLoading() {
         // No-op
+    }
+}
+
+final class MockAuthenticationProvider: AuthenticationProviding {
+    private let header: (String, String)?
+
+    init(header: (String, String)?) {
+        self.header = header
+    }
+
+    func authorizationHeader() async -> (key: String, value: String)? {
+        guard let header else { return nil }
+        return (header.0, header.1)
     }
 }
 #endif

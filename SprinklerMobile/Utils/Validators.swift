@@ -37,7 +37,11 @@ enum Validators {
         }
 
         if let host = components.host?.trimmingCharacters(in: .whitespacesAndNewlines), !host.isEmpty {
-            components.host = host.lowercased()
+            let sanitized = URLNormalize.sanitizedHost(host)
+            guard !sanitized.isEmpty else {
+                throw APIError.validationFailed("Please include the host or IP address.")
+            }
+            components.host = sanitized
         }
 
         guard let host = components.host, !host.isEmpty else {

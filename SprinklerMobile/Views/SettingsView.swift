@@ -244,7 +244,7 @@ private struct ConnectionSettingsCard: CardView {
             }
 
             VStack(spacing: 12) {
-                TextField("http://sprinkler.local:8000", text: $baseURL)
+                TextField(ControllerConfig.defaultBaseAddress, text: $baseURL)
                     .textInputAutocapitalization(.never)
                     .keyboardType(.URL)
                     .disableAutocorrection(true)
