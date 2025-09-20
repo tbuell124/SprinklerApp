@@ -62,7 +62,8 @@ struct Schedule: Identifiable, Codable, Hashable {
     /// Returns a write payload compatible with the existing controller API.
     func writePayload() -> ScheduleWritePayload {
         let sanitizedDuration = max(runTimeMinutes, 0)
-        return ScheduleWritePayload(name: sanitizedName,
+        return ScheduleWritePayload(id: id,
+                                    name: sanitizedName,
                                     durationMinutes: sanitizedDuration,
                                     startTime: startTime,
                                     days: days.isEmpty ? nil : Schedule.orderedDays(from: days),
