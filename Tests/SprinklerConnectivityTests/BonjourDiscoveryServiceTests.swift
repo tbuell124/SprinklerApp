@@ -8,8 +8,8 @@ import XCTest
 
 final class BonjourDiscoveryServiceTests: XCTestCase {
     func testBaseURLPrefersHost() {
-        let device = DiscoveredDevice(id: "sprinkler.local:5000", name: "sprinkler", host: "sprinkler.local", ip: "192.168.1.10", port: 5000)
-        XCTAssertEqual(device.baseURLString, "http://sprinkler.local:5000")
+        let device = DiscoveredDevice(id: "sprinkler.local:8000", name: "sprinkler", host: "sprinkler.local", ip: "192.168.1.10", port: 8000)
+        XCTAssertEqual(device.baseURLString, "http://sprinkler.local:8000")
     }
 
     func testBaseURLFallsBackToIPv6() {
@@ -18,8 +18,8 @@ final class BonjourDiscoveryServiceTests: XCTestCase {
     }
 
     func testBaseURLStripsTrailingDotFromHost() {
-        let device = DiscoveredDevice(id: "sprinkler.local.:5000", name: "sprinkler", host: "sprinkler.local.", ip: nil, port: 5000)
-        XCTAssertEqual(device.baseURLString, "http://sprinkler.local:5000")
+        let device = DiscoveredDevice(id: "sprinkler.local.:8000", name: "sprinkler", host: "sprinkler.local.", ip: nil, port: 8000)
+        XCTAssertEqual(device.baseURLString, "http://sprinkler.local:8000")
     }
 }
 #endif

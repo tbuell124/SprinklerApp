@@ -85,7 +85,8 @@ struct HealthService: ConnectivityChecking {
     private static func candidateStatusURLs(for baseURL: URL) -> [URL] {
         var urls: [URL] = []
         var visited = Set<String>()
-        let segments = pathSegments(in: baseURL)
+        let normalizedBase = URLNormalize.normalized(baseURL)
+        let segments = pathSegments(in: normalizedBase)
 
         func append(_ url: URL) {
             let normalized = URLNormalize.normalized(url)
@@ -95,20 +96,19 @@ struct HealthService: ConnectivityChecking {
             }
         }
 
-        if let last = segments.last, last.caseInsensitiveCompare("status") == .orderedSame {
-            append(baseURL)
-        } else {
-            append(baseURL.appendingPathComponent("status"))
+        if let preferred = preferredAPIStatusURL(for: normalizedBase, segments: segments) {
+            append(preferred)
         }
 
-        if segments.contains(where: { $0.caseInsensitiveCompare("api") == .orderedSame }) {
-            if let last = segments.last,
-               last.caseInsensitiveCompare("status") == .orderedSame,
-               let root = removingPathSegments(startingWith: "api", from: baseURL) {
-                append(root.appendingPathComponent("status"))
-            }
+        if let last = segments.last, last.caseInsensitiveCompare("status") == .orderedSame {
+            append(normalizedBase)
         } else {
-            append(baseURL.appendingPathComponent("api").appendingPathComponent("status"))
+            append(normalizedBase.appendingPathComponent("status"))
+        }
+
+        if segments.contains(where: { $0.caseInsensitiveCompare("api") == .orderedSame }),
+           let root = removingPathSegments(startingWith: "api", from: normalizedBase) {
+            append(root.appendingPathComponent("status"))
         }
 
         return urls
@@ -133,6 +133,30 @@ struct HealthService: ConnectivityChecking {
             components.percentEncodedPath = "/" + segments.joined(separator: "/")
         }
         return components.url.map(URLNormalize.normalized)
+    }
+
+    /// Determines the most appropriate `/api/status` endpoint for the supplied base URL, if any.
+    private static func preferredAPIStatusURL(for baseURL: URL, segments: [String]) -> URL? {
+        guard !segments.isEmpty else {
+            return baseURL.appendingPathComponent("api").appendingPathComponent("status")
+        }
+
+        if segments.count >= 2,
+           segments[segments.count - 2].caseInsensitiveCompare("api") == .orderedSame,
+           segments.last?.caseInsensitiveCompare("status") == .orderedSame {
+            return baseURL
+        }
+
+        if let last = segments.last,
+           last.caseInsensitiveCompare("api") == .orderedSame {
+            return baseURL.appendingPathComponent("status")
+        }
+
+        if segments.contains(where: { $0.caseInsensitiveCompare("api") == .orderedSame }) {
+            return nil
+        }
+
+        return baseURL.appendingPathComponent("api").appendingPathComponent("status")
     }
 
     /// Attempts to interpret a JSON status payload and determine whether the controller is healthy.
