@@ -1071,7 +1071,7 @@ final class SprinklerStore: ObservableObject {
             var normalized = remote
             normalized.lastModified = now
             normalized.lastSyncedAt = now
-            if var local = localById.removeValue(forKey: remote.id) {
+            if let local = localById.removeValue(forKey: remote.id) {
                 if local.needsSync {
                     merged[local.id] = local
                     continue

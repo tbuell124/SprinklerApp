@@ -267,6 +267,8 @@ private extension BonjourDiscoveryService {
             return "The discovery request was malformed."
         case .cancelledError:
             return "Discovery was cancelled before finishing."
+        case .missingRequiredConfigurationError:
+            return "The network configuration for discovery is incomplete."
         case .invalidError:
             return "The discovery request was invalid."
         case .timeoutError:
