@@ -13,7 +13,7 @@ enum ControllerConfig {
     static let defaultHost = "sprinkler.local"
 
     /// Default TCP port exposed by the controller web service.
-    static let defaultPort = 5000
+    static let defaultPort = 8000
 
     /// Canonical base URL used for new installations before the user customises the address.
     static var defaultBaseURL: URL {

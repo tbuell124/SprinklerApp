@@ -36,8 +36,8 @@ final class ConnectivityStoreTests: XCTestCase {
 
     @MainActor
     func testNormalizedBaseURLStripsTrailingDot() {
-        let url = ConnectivityStore.normalizedBaseURL(from: "http://sprinkler.local.:5000")
-        XCTAssertEqual(url?.absoluteString, "http://sprinkler.local:5000")
+        let url = ConnectivityStore.normalizedBaseURL(from: "http://sprinkler.local.:8000")
+        XCTAssertEqual(url?.absoluteString, "http://sprinkler.local:8000")
     }
 
     func testConcurrentCallsDoNotTriggerMultipleChecks() async {

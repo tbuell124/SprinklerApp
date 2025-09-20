@@ -83,7 +83,7 @@ final class HealthServiceTests: XCTestCase {
         }
     }
 
-    func testFallsBackToApiStatusWhenDirectStatusFails() async {
+    func testPrefersApiStatusButFallsBackToLegacyStatus() async {
         let expectation = expectation(description: "Both endpoints queried")
         expectation.expectedFulfillmentCount = 2
 
@@ -93,7 +93,7 @@ final class HealthServiceTests: XCTestCase {
             requestedPaths.append(request.url!.path)
             expectation.fulfill()
 
-            if request.url!.path == "/status" {
+            if request.url!.path == "/api/status" {
                 let response = HTTPURLResponse(url: request.url!,
                                                statusCode: 404,
                                                httpVersion: nil,
@@ -113,7 +113,7 @@ final class HealthServiceTests: XCTestCase {
 
         await fulfillment(of: [expectation], timeout: 1.0)
         XCTAssertEqual(result, .connected)
-        XCTAssertEqual(requestedPaths, ["/status", "/api/status"])
+        XCTAssertEqual(requestedPaths, ["/api/status", "/status"])
     }
 
     func testDoesNotDuplicateApiSegmentWhenBaseURLAlreadyContainsIt() async {
