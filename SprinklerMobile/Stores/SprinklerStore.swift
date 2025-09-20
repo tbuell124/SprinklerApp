@@ -83,6 +83,8 @@ final class SprinklerStore: ObservableObject {
     @Published var isRefreshing: Bool = false
     @Published var toast: ToastState?
     @Published private(set) var connectionDiagnostics: ConnectionDiagnostics?
+    @Published var connectionErrorMessage: String?
+    @Published private(set) var pendingSyncMessage: String?
 
     // Settings state
     @Published var targetAddress: String = ""
@@ -102,11 +104,54 @@ final class SprinklerStore: ObservableObject {
     private let schedulePersistence: SchedulePersistence
     private var pendingScheduleDeletionIds: Set<String> = []
     private var pendingScheduleReorder: [String]?
+    private var pendingOperations: [PendingOperation] = []
+    private var isFlushingPendingOperations = false
 
     private enum ScheduleSyncOutcome {
         case synced
         case deferred
         case failed(Error)
+    }
+
+    private struct PendingOperation: Identifiable, Equatable {
+        enum Kind: Equatable {
+            case setPin(pin: Int, isOn: Bool, displayName: String)
+            case timedPinRun(pin: Int, durationMinutes: Int, displayName: String)
+            case updatePin(pin: Int, name: String?, isEnabled: Bool, displayName: String)
+            case reorderPins(order: [Int])
+            case setRain(isActive: Bool, durationHours: Int?)
+            case updateRainSettings(zip: String, threshold: Int, isEnabled: Bool)
+            case setRainAutomation(zip: String, threshold: Int, isEnabled: Bool)
+        }
+
+        let id = UUID()
+        let kind: Kind
+        let enqueuedAt: Date
+
+        init(kind: Kind, enqueuedAt: Date = Date()) {
+            self.kind = kind
+            self.enqueuedAt = enqueuedAt
+        }
+
+        var coalescingKey: String? {
+            switch kind {
+            case .setPin(let pin, _, _), .timedPinRun(let pin, _, _), .updatePin(let pin, _, _, _):
+                return "pin-\(pin)"
+            case .reorderPins:
+                return "pin-reorder"
+            case .setRain:
+                return "rain-state"
+            case .updateRainSettings:
+                return "rain-settings"
+            case .setRainAutomation:
+                return "rain-automation"
+            }
+        }
+
+        func isExpired(relativeTo referenceDate: Date, timeout: TimeInterval) -> Bool {
+            guard case .timedPinRun = kind else { return false }
+            return referenceDate.timeIntervalSince(enqueuedAt) > timeout
+        }
     }
     private lazy var bonjourDiscovery: BonjourServiceDiscovery = {
         BonjourServiceDiscovery(
@@ -130,6 +175,8 @@ final class SprinklerStore: ObservableObject {
     private let lastSuccessKey = "sprinkler.last_success"
     private let versionKey = "sprinkler.server_version"
     private let manualRainDelayKey = "sprinkler.manual_rain_delay_hours"
+    private let timedRunQueueExpiry: TimeInterval = 15 * 60
+    private let offlineQueueNotice = "Controller is unreachable. Pending changes will sync automatically once reconnected."
 
     init(userDefaults: UserDefaults = .standard,
          keychain: KeychainStoring = KeychainStorage(),
@@ -186,6 +233,8 @@ final class SprinklerStore: ObservableObject {
                 connectionStatus = .connected(lastSuccessfulConnection)
             }
         }
+
+        updatePendingSyncMessage()
     }
 
     func refresh() async {
@@ -265,15 +314,44 @@ final class SprinklerStore: ObservableObject {
         let previousState = pins[index].isActive
         pins[index].isActive = desiredState
 
-        Task {
+        let operation = PendingOperation(kind: .setPin(pin: pin.pin,
+                                                       isOn: desiredState,
+                                                       displayName: pin.displayName))
+
+        guard connectionStatus.isReachable else {
+            enqueuePendingOperation(operation, notice: offlineQueueNotice)
+            persistCurrentStateSnapshot()
+            return
+        }
+
+        Task { [weak self] in
+            guard let self else { return }
             do {
-                try await client.setPin(pin.pin, on: desiredState)
+                try await self.client.setPin(pin.pin, on: desiredState)
+            } catch let error as APIError {
+                await MainActor.run {
+                    if case .unreachable = error {
+                        self.connectionStatus = .unreachable(error.localizedDescription)
+                        self.recordConnectionFailure(error)
+                        self.enqueuePendingOperation(operation, notice: self.offlineQueueNotice)
+                        self.persistCurrentStateSnapshot()
+                        return
+                    }
+
+                    if let revertIndex = self.pins.firstIndex(where: { $0.id == pin.id }) {
+                        self.pins[revertIndex].isActive = previousState
+                    }
+                    self.connectionErrorMessage = error.localizedDescription
+                    self.showToast(message: self.toastMessage(for: error, defaultMessage: "Failed to update pin"),
+                                   style: .error)
+                }
             } catch {
                 await MainActor.run {
-                    if let revertIndex = pins.firstIndex(where: { $0.id == pin.id }) {
-                        pins[revertIndex].isActive = previousState
+                    if let revertIndex = self.pins.firstIndex(where: { $0.id == pin.id }) {
+                        self.pins[revertIndex].isActive = previousState
                     }
-                    showToast(message: "Failed to update pin", style: .error)
+                    self.connectionErrorMessage = APIError.invalidResponse.localizedDescription
+                    self.showToast(message: "Failed to update pin", style: .error)
                 }
             }
         }
@@ -291,19 +369,33 @@ final class SprinklerStore: ObservableObject {
             return
         }
 
+        let previouslyActive = pins[index].isActive ?? false
         pins[index].isActive = true
 
         let (seconds, secondsOverflow) = sanitizedMinutes.multipliedReportingOverflow(by: 60)
         if secondsOverflow {
-            pins[index].isActive = false
+            pins[index].isActive = previouslyActive
             showToast(message: "Duration is too long.", style: .error)
             return
         }
 
         let (nanoseconds, nanoOverflow) = UInt64(seconds).multipliedReportingOverflow(by: 1_000_000_000)
         if nanoOverflow {
-            pins[index].isActive = false
+            pins[index].isActive = previouslyActive
             showToast(message: "Duration is too long.", style: .error)
+            return
+        }
+
+        let operation = PendingOperation(kind: .timedPinRun(pin: pin.pin,
+                                                            durationMinutes: sanitizedMinutes,
+                                                            displayName: pin.displayName))
+
+        let offlineMessage = "\(pin.displayName) will start once the controller reconnects."
+
+        guard connectionStatus.isReachable else {
+            pins[index].isActive = previouslyActive
+            enqueuePendingOperation(operation, notice: nil, forceNotice: true)
+            showToast(message: offlineMessage, style: .info)
             return
         }
 
@@ -314,11 +406,33 @@ final class SprinklerStore: ObservableObject {
                 await MainActor.run {
                     self.showToast(message: "Started \(pin.displayName) for \(sanitizedMinutes) minutes", style: .success)
                 }
+            } catch let error as APIError {
+                await MainActor.run {
+                    if case .unreachable = error {
+                        if let revertIndex = self.pins.firstIndex(where: { $0.id == pin.id }) {
+                            self.pins[revertIndex].isActive = previouslyActive
+                        }
+                        self.connectionStatus = .unreachable(error.localizedDescription)
+                        self.recordConnectionFailure(error)
+                        self.enqueuePendingOperation(operation, notice: nil, forceNotice: true)
+                        self.showToast(message: offlineMessage, style: .info)
+                        return
+                    }
+
+                    if let revertIndex = self.pins.firstIndex(where: { $0.id == pin.id }) {
+                        self.pins[revertIndex].isActive = previouslyActive
+                    }
+                    self.connectionErrorMessage = error.localizedDescription
+                    self.showToast(message: self.toastMessage(for: error, defaultMessage: "Failed to start \(pin.displayName)"),
+                                   style: .error)
+                }
+                return
             } catch {
                 await MainActor.run {
                     if let revertIndex = self.pins.firstIndex(where: { $0.id == pin.id }) {
-                        self.pins[revertIndex].isActive = false
+                        self.pins[revertIndex].isActive = previouslyActive
                     }
+                    self.connectionErrorMessage = APIError.invalidResponse.localizedDescription
                     self.showToast(message: "Failed to start \(pin.displayName)", style: .error)
                 }
                 return
@@ -332,11 +446,28 @@ final class SprinklerStore: ObservableObject {
 
             do {
                 try await self.client.setPin(pin.pin, on: false)
+            } catch let error as APIError {
+                await MainActor.run {
+                    if let revertIndex = self.pins.firstIndex(where: { $0.id == pin.id }) {
+                        self.pins[revertIndex].isActive = previouslyActive
+                    }
+                    if case .unreachable = error {
+                        self.connectionStatus = .unreachable(error.localizedDescription)
+                        self.recordConnectionFailure(error)
+                        self.enqueuePendingOperation(operation, notice: nil, forceNotice: true)
+                        self.showToast(message: offlineMessage, style: .info)
+                    } else {
+                        self.connectionErrorMessage = error.localizedDescription
+                        self.showToast(message: "Unable to stop \(pin.displayName). Verify the controller state.", style: .error)
+                    }
+                }
+                return
             } catch {
                 await MainActor.run {
                     if let revertIndex = self.pins.firstIndex(where: { $0.id == pin.id }) {
-                        self.pins[revertIndex].isActive = false
+                        self.pins[revertIndex].isActive = previouslyActive
                     }
+                    self.connectionErrorMessage = APIError.invalidResponse.localizedDescription
                     self.showToast(message: "Unable to stop \(pin.displayName). Verify the controller state.", style: .error)
                 }
                 return
@@ -344,7 +475,7 @@ final class SprinklerStore: ObservableObject {
 
             await MainActor.run {
                 if let revertIndex = self.pins.firstIndex(where: { $0.id == pin.id }) {
-                    self.pins[revertIndex].isActive = false
+                    self.pins[revertIndex].isActive = previouslyActive
                 }
             }
         }
@@ -362,6 +493,18 @@ final class SprinklerStore: ObservableObject {
         pins[index].name = normalizedNewName
         let isEnabled = pins[index].isEnabled ?? pin.isEnabled ?? true
 
+        let operation = PendingOperation(kind: .updatePin(pin: pin.pin,
+                                                          name: normalizedNewName,
+                                                          isEnabled: isEnabled,
+                                                          displayName: pin.displayName))
+
+        guard connectionStatus.isReachable else {
+            persistCurrentStateSnapshot()
+            enqueuePendingOperation(operation, notice: nil, forceNotice: true)
+            showToast(message: "Rename saved. Will sync when connected.", style: .info)
+            return
+        }
+
         Task {
             do {
                 try await client.updatePin(pin.pin, name: normalizedNewName, isEnabled: isEnabled)
@@ -370,12 +513,32 @@ final class SprinklerStore: ObservableObject {
                     self.persistCurrentStateSnapshot()
                     self.showToast(message: "Pin renamed", style: .success)
                 }
+            } catch let error as APIError {
+                await MainActor.run { [weak self] in
+                    guard let self else { return }
+                    if case .unreachable = error {
+                        self.connectionStatus = .unreachable(error.localizedDescription)
+                        self.recordConnectionFailure(error)
+                        self.persistCurrentStateSnapshot()
+                        self.enqueuePendingOperation(operation, notice: nil, forceNotice: true)
+                        self.showToast(message: "Rename saved. Will sync when connected.", style: .info)
+                        return
+                    }
+
+                    if let revertIndex = self.pins.firstIndex(where: { $0.id == pin.id }) {
+                        self.pins[revertIndex] = previousPin
+                    }
+                    self.connectionErrorMessage = error.localizedDescription
+                    self.showToast(message: self.toastMessage(for: error, defaultMessage: "Rename failed"),
+                                   style: .error)
+                }
             } catch {
                 await MainActor.run { [weak self] in
                     guard let self else { return }
                     if let revertIndex = self.pins.firstIndex(where: { $0.id == pin.id }) {
                         self.pins[revertIndex] = previousPin
                     }
+                    self.connectionErrorMessage = APIError.invalidResponse.localizedDescription
                     self.showToast(message: self.toastMessage(for: error, defaultMessage: "Rename failed"),
                                    style: .error)
                 }
@@ -389,6 +552,18 @@ final class SprinklerStore: ObservableObject {
         pins[index].isEnabled = isEnabled
 
         let normalizedName = normalizedName(from: pins[index].name)
+        let operation = PendingOperation(kind: .updatePin(pin: pin.pin,
+                                                          name: normalizedName,
+                                                          isEnabled: isEnabled,
+                                                          displayName: pin.displayName))
+
+        guard connectionStatus.isReachable else {
+            persistCurrentStateSnapshot()
+            enqueuePendingOperation(operation, notice: nil, forceNotice: true)
+            showToast(message: "Pin update saved. Will sync when connected.", style: .info)
+            return
+        }
+
         Task { [weak self] in
             guard let self else { return }
             do {
@@ -398,11 +573,29 @@ final class SprinklerStore: ObservableObject {
                     self.persistCurrentStateSnapshot()
                     self.showToast(message: isEnabled ? "Pin enabled" : "Pin hidden", style: .success)
                 }
+            } catch let error as APIError {
+                await MainActor.run {
+                    if case .unreachable = error {
+                        self.connectionStatus = .unreachable(error.localizedDescription)
+                        self.recordConnectionFailure(error)
+                        self.persistCurrentStateSnapshot()
+                        self.enqueuePendingOperation(operation, notice: nil, forceNotice: true)
+                        self.showToast(message: "Pin update saved. Will sync when connected.", style: .info)
+                        return
+                    }
+
+                    if let revertIndex = self.pins.firstIndex(where: { $0.id == pin.id }) {
+                        self.pins[revertIndex] = previous
+                    }
+                    self.connectionErrorMessage = error.localizedDescription
+                    self.showToast(message: "Failed to update pin", style: .error)
+                }
             } catch {
                 await MainActor.run {
                     if let revertIndex = self.pins.firstIndex(where: { $0.id == pin.id }) {
                         self.pins[revertIndex] = previous
                     }
+                    self.connectionErrorMessage = APIError.invalidResponse.localizedDescription
                     self.showToast(message: "Failed to update pin", style: .error)
                 }
             }
@@ -410,6 +603,18 @@ final class SprinklerStore: ObservableObject {
     }
 
     func setRain(active: Bool, durationHours: Int?) {
+        let operation = PendingOperation(kind: .setRain(isActive: active, durationHours: durationHours))
+        let offlineMessage = active ? "Rain delay will activate when the controller reconnects." : "Rain delay change will sync when connected."
+
+        guard connectionStatus.isReachable else {
+            if let durationHours, durationHours > 0 {
+                updateManualRainDelayHours(durationHours)
+            }
+            enqueuePendingOperation(operation, notice: nil, forceNotice: true)
+            showToast(message: offlineMessage, style: .info)
+            return
+        }
+
         Task {
             do {
                 try await client.setRain(isActive: active, durationHours: durationHours)
@@ -420,8 +625,25 @@ final class SprinklerStore: ObservableObject {
                         updateManualRainDelayHours(durationHours)
                     }
                 }
+            } catch let error as APIError {
+                await MainActor.run {
+                    if case .unreachable = error {
+                        if let durationHours, durationHours > 0 {
+                            updateManualRainDelayHours(durationHours)
+                        }
+                        connectionStatus = .unreachable(error.localizedDescription)
+                        recordConnectionFailure(error)
+                        enqueuePendingOperation(operation, notice: nil, forceNotice: true)
+                        showToast(message: offlineMessage, style: .info)
+                        return
+                    }
+
+                    connectionErrorMessage = error.localizedDescription
+                    showToast(message: toastMessage(for: error, defaultMessage: "Failed to update rain delay"), style: .error)
+                }
             } catch {
                 await MainActor.run {
+                    connectionErrorMessage = APIError.invalidResponse.localizedDescription
                     showToast(message: "Failed to update rain delay", style: .error)
                 }
             }
@@ -448,6 +670,18 @@ final class SprinklerStore: ObservableObject {
         rainSettingsIsEnabled = isEnabled
         isUpdatingRainAutomation = true
 
+        let operation = PendingOperation(kind: .setRainAutomation(zip: zipCode,
+                                                                   threshold: threshold,
+                                                                   isEnabled: isEnabled))
+
+        guard connectionStatus.isReachable else {
+            isUpdatingRainAutomation = false
+            enqueuePendingOperation(operation, notice: nil, forceNotice: true)
+            showToast(message: isEnabled ? "Automation will enable once connected." : "Automation will disable once connected.",
+                      style: .info)
+            return
+        }
+
         Task { [weak self] in
             guard let self else { return }
             do {
@@ -459,10 +693,30 @@ final class SprinklerStore: ObservableObject {
                     self.showToast(message: isEnabled ? "Rain delay automation enabled" : "Rain delay automation disabled",
                                    style: .success)
                 }
+            } catch let error as APIError {
+                await MainActor.run {
+                    if case .unreachable = error {
+                        self.connectionStatus = .unreachable(error.localizedDescription)
+                        self.recordConnectionFailure(error)
+                        self.rainAutomationEnabled = isEnabled
+                        self.rainSettingsIsEnabled = isEnabled
+                        self.enqueuePendingOperation(operation, notice: nil, forceNotice: true)
+                        self.showToast(message: isEnabled ? "Automation will enable once connected." : "Automation will disable once connected.",
+                                       style: .info)
+                    } else {
+                        self.rainAutomationEnabled = previousValue
+                        self.rainSettingsIsEnabled = previousValue
+                        self.connectionErrorMessage = error.localizedDescription
+                        self.showToast(message: self.toastMessage(for: error,
+                                                                   defaultMessage: "Failed to update automation"),
+                                       style: .error)
+                    }
+                }
             } catch {
                 await MainActor.run {
                     self.rainAutomationEnabled = previousValue
                     self.rainSettingsIsEnabled = previousValue
+                    self.connectionErrorMessage = APIError.invalidResponse.localizedDescription
                     self.showToast(message: self.toastMessage(for: error,
                                                                defaultMessage: "Failed to update automation"),
                                    style: .error)
@@ -524,6 +778,18 @@ final class SprinklerStore: ObservableObject {
         isSavingRainSettings = true
         defer { isSavingRainSettings = false }
 
+        let operation = PendingOperation(kind: .updateRainSettings(zip: zip,
+                                                                    threshold: threshold,
+                                                                    isEnabled: isEnabled))
+        let offlineMessage = "Rain settings saved locally. They will sync when the controller reconnects."
+
+        guard connectionStatus.isReachable else {
+            rainAutomationEnabled = isEnabled
+            enqueuePendingOperation(operation, notice: nil, forceNotice: true)
+            showToast(message: offlineMessage, style: .info)
+            return
+        }
+
         do {
             try await client.updateRainSettings(zipCode: zip,
                                                 thresholdPercent: threshold,
@@ -533,7 +799,21 @@ final class SprinklerStore: ObservableObject {
             if showSuccessToast {
                 showToast(message: "Rain settings saved", style: .success)
             }
+        } catch let error as APIError {
+            if case .unreachable = error {
+                rainAutomationEnabled = isEnabled
+                connectionStatus = .unreachable(error.localizedDescription)
+                recordConnectionFailure(error)
+                enqueuePendingOperation(operation, notice: nil, forceNotice: true)
+                showToast(message: offlineMessage, style: .info)
+                return
+            }
+
+            connectionErrorMessage = error.localizedDescription
+            showToast(message: toastMessage(for: error, defaultMessage: "Failed to save rain settings"),
+                      style: .error)
         } catch {
+            connectionErrorMessage = APIError.invalidResponse.localizedDescription
             showToast(message: toastMessage(for: error, defaultMessage: "Failed to save rain settings"),
                       style: .error)
         }
@@ -639,12 +919,35 @@ final class SprinklerStore: ObservableObject {
         }
 
         pins = combined
+        let operation = PendingOperation(kind: .reorderPins(order: combined.map { $0.pin }))
+
+        guard connectionStatus.isReachable else {
+            enqueuePendingOperation(operation, notice: nil, forceNotice: true)
+            persistCurrentStateSnapshot()
+            showToast(message: "Pin order saved locally. Will sync when connected.", style: .info)
+            return
+        }
+
         Task {
             do {
                 let order = combined.map { $0.pin }
                 try await client.reorderPins(order)
+            } catch let error as APIError {
+                await MainActor.run {
+                    if case .unreachable = error {
+                        connectionStatus = .unreachable(error.localizedDescription)
+                        recordConnectionFailure(error)
+                        enqueuePendingOperation(operation, notice: nil, forceNotice: true)
+                        persistCurrentStateSnapshot()
+                        showToast(message: "Pin order saved locally. Will sync when connected.", style: .info)
+                    } else {
+                        connectionErrorMessage = error.localizedDescription
+                        showToast(message: "Failed to reorder pins", style: .error)
+                    }
+                }
             } catch {
                 await MainActor.run {
+                    connectionErrorMessage = APIError.invalidResponse.localizedDescription
                     showToast(message: "Failed to reorder pins", style: .error)
                 }
             }
@@ -681,11 +984,20 @@ final class SprinklerStore: ObservableObject {
             serverVersion = version
             defaults.set(version, forKey: versionKey)
         }
+        connectionErrorMessage = nil
+        updatePendingSyncMessage()
+        Task { await flushPendingOperations() }
     }
 
     func recordConnectionFailure(_ error: APIError) {
         lastFailure = error
         connectionDiagnostics = nil
+        connectionErrorMessage = error.localizedDescription
+        updatePendingSyncMessage()
+    }
+
+    func dismissErrorMessage() {
+        connectionErrorMessage = nil
     }
 
     private func persistTargetAddress(_ url: URL) {
@@ -712,6 +1024,7 @@ final class SprinklerStore: ObservableObject {
         if let duration = status.rain?.durationHours, duration > 0 {
             updateManualRainDelayHours(duration)
         }
+        updatePendingSyncMessage()
     }
 
     /// Blends controller supplied pin metadata with the static catalog so every
@@ -1044,6 +1357,116 @@ final class SprinklerStore: ObservableObject {
         return nil
     }
 
+    private func enqueuePendingOperation(_ operation: PendingOperation, notice: String? = nil, forceNotice: Bool = false) {
+        let wasEmpty = pendingOperations.isEmpty
+        if let key = operation.coalescingKey {
+            pendingOperations.removeAll { $0.coalescingKey == key }
+        }
+        pendingOperations.append(operation)
+        updatePendingSyncMessage()
+        if (wasEmpty || forceNotice), let notice {
+            showToast(message: notice, style: .info)
+        }
+    }
+
+    private func updatePendingSyncMessage() {
+        let totalPending = pendingOperations.count + pendingScheduleChangeCount()
+        if totalPending == 0 {
+            if pendingSyncMessage != nil {
+                pendingSyncMessage = nil
+            }
+            return
+        }
+
+        let message: String
+        if totalPending == 1 {
+            message = "1 change will sync once the controller reconnects."
+        } else {
+            message = "\(totalPending) changes will sync once the controller reconnects."
+        }
+
+        if pendingSyncMessage != message {
+            pendingSyncMessage = message
+        }
+    }
+
+    private func pendingScheduleChangeCount() -> Int {
+        var count = pendingScheduleDeletionIds.count
+        if pendingScheduleReorder != nil {
+            count += 1
+        }
+        count += schedules.filter { $0.needsSync }.count
+        return count
+    }
+
+    private func flushPendingOperations() async {
+        guard !isFlushingPendingOperations else { return }
+        guard connectionStatus.isReachable else { return }
+        guard !pendingOperations.isEmpty else {
+            updatePendingSyncMessage()
+            return
+        }
+
+        isFlushingPendingOperations = true
+        var syncedCount = 0
+        defer {
+            isFlushingPendingOperations = false
+            updatePendingSyncMessage()
+            if syncedCount > 0 {
+                showToast(message: syncedCount == 1 ? "1 queued change synced" : "\(syncedCount) queued changes synced", style: .success)
+            }
+        }
+
+        while !pendingOperations.isEmpty {
+            let operation = pendingOperations.removeFirst()
+            if operation.isExpired(relativeTo: Date(), timeout: timedRunQueueExpiry) {
+                continue
+            }
+
+            do {
+                try await perform(operation)
+                syncedCount += 1
+            } catch let error as APIError {
+                if case .unreachable = error {
+                    pendingOperations.insert(operation, at: 0)
+                    connectionErrorMessage = error.localizedDescription
+                    return
+                }
+
+                connectionErrorMessage = error.localizedDescription
+                showToast(message: toastMessage(for: error, defaultMessage: "Failed to sync pending change"), style: .error)
+            } catch {
+                connectionErrorMessage = APIError.invalidResponse.localizedDescription
+                showToast(message: "Failed to sync pending change", style: .error)
+            }
+        }
+    }
+
+    private func perform(_ operation: PendingOperation) async throws {
+        switch operation.kind {
+        case .setPin(let pin, let isOn, _):
+            try await client.setPin(pin, on: isOn)
+        case .timedPinRun(let pin, let durationMinutes, _):
+            try await client.setPin(pin, on: true)
+            let seconds = max(0, durationMinutes) * 60
+            if seconds > 0 {
+                let nanoseconds = UInt64(seconds) * 1_000_000_000
+                try await Task.sleep(nanoseconds: nanoseconds)
+            }
+            try await client.setPin(pin, on: false)
+        case .updatePin(let pin, let name, let isEnabled, _):
+            try await client.updatePin(pin, name: name, isEnabled: isEnabled)
+        case .reorderPins(let order):
+            try await client.reorderPins(order)
+        case .setRain(let isActive, let durationHours):
+            try await client.setRain(isActive: isActive, durationHours: durationHours)
+        case .updateRainSettings(let zip, let threshold, let isEnabled):
+            try await client.updateRainSettings(zipCode: zip, thresholdPercent: threshold, isEnabled: isEnabled)
+        case .setRainAutomation(let zip, let threshold, let isEnabled):
+            try await client.updateRainSettings(zipCode: zip, thresholdPercent: threshold, isEnabled: isEnabled)
+        }
+    }
+
     /// Persists the latest in-memory status so future launches (and offline
     /// sessions) reflect configuration changes such as renames immediately.
     @MainActor
@@ -1053,6 +1476,7 @@ final class SprinklerStore: ObservableObject {
                                              pendingReorder: pendingScheduleReorder)
         schedulePersistence.save(state)
         persistCurrentStateSnapshot()
+        updatePendingSyncMessage()
     }
 
     private func persistCurrentStateSnapshot() {
