@@ -1,4 +1,9 @@
 import XCTest
+#if canImport(Darwin)
+import Darwin
+#else
+import Glibc
+#endif
 @testable import Sprink
 
 @MainActor
@@ -73,13 +78,130 @@ final class SprinklerStoreTests: XCTestCase {
         XCTAssertEqual(run.endDate, expectedEnd)
     }
 
+    func testCreatingSchedulePersistsAcrossStoreInstances() async {
+        let environment = try? TemporaryHomeEnvironment()
+        XCTAssertNotNil(environment, "Failed to create temporary home directory")
+        guard let environment else { return }
+        defer { environment.restore() }
+
+        let suiteName = "SprinklerStoreTests-Create"
+        let store = makeStore(suiteName: suiteName, clearSuite: true)
+
+        var draft = ScheduleDraft(pins: store.pins)
+        draft.name = "Morning Water"
+        draft.runTimeMinutes = 18
+        draft.startTime = "06:15"
+        draft.days = ["Mon", "Wed"]
+        store.upsertSchedule(draft)
+
+        XCTAssertEqual(store.schedules.count, 1)
+
+        await waitForPersistence()
+
+        let reloadedStore = makeStore(suiteName: suiteName, clearSuite: false)
+        XCTAssertEqual(reloadedStore.schedules.count, 1)
+        guard let persisted = reloadedStore.schedules.first else {
+            return XCTFail("Expected schedule to persist across instances")
+        }
+        XCTAssertEqual(persisted.name, "Morning Water")
+        XCTAssertEqual(persisted.runTimeMinutes, 18)
+
+        cleanupUserDefaults(suiteName: suiteName)
+    }
+
+    func testEditingScheduleUpdatesPersistedState() async {
+        let environment = try? TemporaryHomeEnvironment()
+        XCTAssertNotNil(environment, "Failed to create temporary home directory")
+        guard let environment else { return }
+        defer { environment.restore() }
+
+        let suiteName = "SprinklerStoreTests-Edit"
+        let store = makeStore(suiteName: suiteName, clearSuite: true)
+
+        var draft = ScheduleDraft(pins: store.pins)
+        draft.name = "Evening Soak"
+        draft.runTimeMinutes = 20
+        draft.startTime = "19:30"
+        draft.days = ["Tue"]
+        store.upsertSchedule(draft)
+
+        await waitForPersistence()
+
+        guard let initial = store.schedules.first else {
+            return XCTFail("Expected schedule to exist after creation")
+        }
+
+        var editedDraft = ScheduleDraft(schedule: initial, pins: store.pins)
+        editedDraft.runTimeMinutes = 35
+        editedDraft.days = ["Tue", "Thu"]
+        store.upsertSchedule(editedDraft)
+
+        await waitForPersistence()
+
+        let reloadedStore = makeStore(suiteName: suiteName, clearSuite: false)
+        guard let persisted = reloadedStore.schedules.first else {
+            return XCTFail("Expected edited schedule to persist")
+        }
+        XCTAssertEqual(persisted.runTimeMinutes, 35)
+        XCTAssertEqual(persisted.days, ["Tue", "Thu"])
+
+        cleanupUserDefaults(suiteName: suiteName)
+    }
+
+    func testDeletingScheduleRemovesPersistedState() async {
+        let environment = try? TemporaryHomeEnvironment()
+        XCTAssertNotNil(environment, "Failed to create temporary home directory")
+        guard let environment else { return }
+        defer { environment.restore() }
+
+        let suiteName = "SprinklerStoreTests-Delete"
+        let store = makeStore(suiteName: suiteName, clearSuite: true)
+
+        var draft = ScheduleDraft(pins: store.pins)
+        draft.name = "Weekend Water"
+        draft.runTimeMinutes = 25
+        draft.startTime = "08:00"
+        draft.days = ["Sat"]
+        store.upsertSchedule(draft)
+
+        await waitForPersistence()
+
+        guard let created = store.schedules.first else {
+            return XCTFail("Expected schedule to exist for deletion test")
+        }
+
+        store.deleteSchedule(created)
+        XCTAssertTrue(store.schedules.isEmpty)
+
+        await waitForPersistence()
+
+        let reloadedStore = makeStore(suiteName: suiteName, clearSuite: false)
+        XCTAssertTrue(reloadedStore.schedules.isEmpty)
+
+        cleanupUserDefaults(suiteName: suiteName)
+    }
+
     private func makeStore() -> SprinklerStore {
-        let suiteName = "SprinklerStoreTests-\(UUID().uuidString)"
+        return makeStore(suiteName: "SprinklerStoreTests-\(UUID().uuidString)", clearSuite: true)
+    }
+
+    private func makeStore(suiteName: String, clearSuite: Bool) -> SprinklerStore {
         let userDefaults = UserDefaults(suiteName: suiteName)!
-        userDefaults.removePersistentDomain(forName: suiteName)
+        if clearSuite {
+            userDefaults.removePersistentDomain(forName: suiteName)
+        }
         return SprinklerStore(userDefaults: userDefaults,
                               keychain: KeychainStub(),
                               client: APIClient())
+    }
+
+    private func cleanupUserDefaults(suiteName: String) {
+        let defaults = UserDefaults(suiteName: suiteName)
+        defaults?.removePersistentDomain(forName: suiteName)
+    }
+
+    private func waitForPersistence() async {
+        try? await Task.sleep(nanoseconds: 150_000_000)
     }
 }
 
@@ -96,5 +218,35 @@ private final class KeychainStub: KeychainStoring {
 
     func deleteValue(forKey key: String) {
         storage.removeValue(forKey: key)
+    }
+}
+
+private final class TemporaryHomeEnvironment {
+    private let originalHome: String?
+    private let originalXDGDataHome: String?
+    private let temporaryURL: URL
+
+    init(fileManager: FileManager = .default) throws {
+        self.originalHome = ProcessInfo.processInfo.environment["HOME"]
+        self.originalXDGDataHome = ProcessInfo.processInfo.environment["XDG_DATA_HOME"]
+        let base = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try fileManager.createDirectory(at: base, withIntermediateDirectories: true)
+        self.temporaryURL = base
+        setenv("HOME", base.path, 1)
+        setenv("XDG_DATA_HOME", base.path, 1)
+    }
+
+    func restore(fileManager: FileManager = .default) {
+        if let originalHome {
+            setenv("HOME", originalHome, 1)
+        } else {
+            unsetenv("HOME")
+        }
+        if let originalXDGDataHome {
+            setenv("XDG_DATA_HOME", originalXDGDataHome, 1)
+        } else {
+            unsetenv("XDG_DATA_HOME")
+        }
+        try? fileManager.removeItem(at: temporaryURL)
     }
 }
