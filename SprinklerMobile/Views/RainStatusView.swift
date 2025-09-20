@@ -152,7 +152,7 @@ struct RainStatusView: View {
             }
         }
         .toggleStyle(.switch)
-        .accessibilityHint("Double tap to \(rain?.isActive == true ? \"end\" : \"start\") a temporary rain delay.")
+        .accessibilityHint(manualToggleAccessibilityHint)
     }
 
     private var manualDurationButton: some View {
@@ -200,6 +200,11 @@ struct RainStatusView: View {
 
     private var showAutomationToggle: Bool {
         hasAutomationConfiguration
+    }
+
+    private var manualToggleAccessibilityHint: String {
+        let actionVerb = rain?.isActive == true ? "end" : "start"
+        return "Double tap to \(actionVerb) a temporary rain delay."
     }
 
     private var hasAutomationConfiguration: Bool {
