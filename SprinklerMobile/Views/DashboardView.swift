@@ -88,11 +88,13 @@ struct DashboardView: View {
                            isLoading: sprinklerStore.isRefreshing,
                            isAutomationEnabled: sprinklerStore.rainAutomationEnabled,
                            isUpdatingAutomation: sprinklerStore.isUpdatingRainAutomation,
-                           onToggleRain: { isActive in
-                               let duration = isActive ? sprinklerStore.rain?.durationHours : nil
-                               sprinklerStore.setRain(active: isActive, durationHours: duration)
+                           manualDelayHours: sprinklerStore.manualRainDelayHours,
+                           onToggleRain: { isActive, duration in
+                               let resolvedDuration = isActive ? (duration ?? sprinklerStore.manualRainDelayHours) : nil
+                               sprinklerStore.setRain(active: isActive, durationHours: resolvedDuration)
                            },
-                           onToggleAutomation: sprinklerStore.setRainAutomationEnabled)
+                           onToggleAutomation: sprinklerStore.setRainAutomationEnabled,
+                           onUpdateManualRainDuration: sprinklerStore.updateManualRainDelayHours)
         }
     }
 
@@ -322,10 +324,15 @@ private struct ScheduleSummaryView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            ScheduleSummaryRow(mode: .current, run: store.currentScheduleRun)
+            let runningPins = store.runningPins
+            ScheduleSummaryRow(mode: .current,
+                               run: store.currentScheduleRun,
+                               activePins: runningPins)
             Divider()
                 .background(Color.appSeparator.opacity(0.4))
-            ScheduleSummaryRow(mode: .upcoming, run: store.nextScheduleRun)
+            ScheduleSummaryRow(mode: .upcoming,
+                               run: store.nextScheduleRun,
+                               activePins: runningPins)
             NavigationLink {
                 SchedulesView()
             } label: {
@@ -350,10 +357,18 @@ private struct ScheduleSummaryRow: View {
             case .upcoming: return "Next Schedule"
             }
         }
+
+        var emptyStateText: String {
+            switch self {
+            case .current: return "No zones running"
+            case .upcoming: return "No schedule queued"
+            }
+        }
     }
 
     let mode: Mode
     let run: SprinklerStore.ScheduleRun?
+    let activePins: [PinDTO]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -361,20 +376,55 @@ private struct ScheduleSummaryRow: View {
                 .font(.appSubheadline)
                 .foregroundStyle(.secondary)
 
-            if let run {
-                Text(run.schedule.name ?? "Schedule")
+            if let info = contentInfo() {
+                Text(info.primary)
                     .font(.appButton)
                     .foregroundStyle(.primary)
 
-                Text(detailText(for: run))
-                    .font(.appCaption)
-                    .foregroundStyle(.secondary)
+                ForEach(info.secondary, id: \.self) { line in
+                    Text(line)
+                        .font(.appCaption)
+                        .foregroundStyle(.secondary)
+                }
             } else {
-                Text("None")
+                Text(mode.emptyStateText)
                     .font(.appButton)
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    private func contentInfo() -> (primary: String, secondary: [String])? {
+        switch mode {
+        case .current:
+            return currentRunInfo()
+        case .upcoming:
+            return upcomingRunInfo()
+        }
+    }
+
+    private func currentRunInfo() -> (primary: String, secondary: [String])? {
+        let activeNames = activePins
+            .map { $0.displayName }
+            .filter { !$0.isEmpty }
+        if let run {
+            var secondary: [String] = [detailText(for: run)]
+            if !activeNames.isEmpty {
+                secondary.append("Zones: \(activeNames.joined(separator: ", "))")
+            }
+            return (run.schedule.name ?? "Schedule", secondary)
+        }
+
+        if !activeNames.isEmpty {
+            return ("Manual watering active",
+                    ["Zones: \(activeNames.joined(separator: ", "))"])
+        }
+        return nil
+    }
+
+    private func upcomingRunInfo() -> (primary: String, secondary: [String])? {
+        guard let run else { return nil }
+        return (run.schedule.name ?? "Schedule", [detailText(for: run)])
     }
 
     private func detailText(for run: SprinklerStore.ScheduleRun) -> String {
