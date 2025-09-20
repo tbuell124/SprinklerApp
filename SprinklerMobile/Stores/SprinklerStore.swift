@@ -1050,11 +1050,14 @@ final class SprinklerStore: ObservableObject {
             if let existing = catalogOverrides[pinNumber] {
                 return existing
             }
-            // Backend did not report this pin, so surface it as a disabled placeholder.
+            // Backend did not report this pin. Surface a placeholder that
+            // remains enabled so the dashboard still lists every GPIO the
+            // hardware supports, preserving the legacy behaviour where all
+            // default zones were visible even before the Pi responded.
             return PinDTO(pin: pinNumber,
                           name: nil,
-                          isActive: nil,
-                          isEnabled: false)
+                          isActive: false,
+                          isEnabled: true)
         }
 
         // Append any non-catalog pins so the full server response remains visible.
