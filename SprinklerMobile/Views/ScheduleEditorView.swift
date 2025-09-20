@@ -72,6 +72,7 @@ struct ScheduleEditorView: View {
         Section("Details") {
             TextField("Name", text: $draft.name)
                 .id("schedule-name-\(draft.id)")
+                .keyboardType(.default)
             LabeledContent("Run Time") {
                 Text("\(totalRuntimeMinutes) min")
                     .font(.body.monospacedDigit())

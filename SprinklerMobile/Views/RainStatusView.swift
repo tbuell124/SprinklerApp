@@ -377,6 +377,8 @@ private struct RainDelayDurationEditor: View {
                     }
                     TextField("Hours", value: $hours, format: .number)
                         .keyboardType(.numberPad)
+                        .textInputAutocapitalization(.never)
+                        .disableAutocorrection(true)
                         .focused($isTextFieldFocused)
                         .id(textFieldID)
                     quickPickRow
