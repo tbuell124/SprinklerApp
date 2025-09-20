@@ -7,6 +7,10 @@ import Combine
 protocol BonjourDiscoveryProviding: AnyObject {
     /// Publisher emitting current list of discovered sprinkler controllers.
     var devicesPublisher: AnyPublisher<[DiscoveredDevice], Never> { get }
+    /// Publisher reflecting whether the underlying browser is actively searching.
+    var isBrowsingPublisher: AnyPublisher<Bool, Never> { get }
+    /// Publisher surfacing human-readable error messages when discovery fails.
+    var errorPublisher: AnyPublisher<String?, Never> { get }
     /// Starts Bonjour discovery.
     func start()
     /// Stops the ongoing discovery session and clears cached data.
@@ -24,6 +28,8 @@ import Darwin
 final class BonjourDiscoveryService: NSObject, BonjourDiscoveryProviding {
     private let browser: NetServiceBrowser
     private let subject: CurrentValueSubject<[DiscoveredDevice], Never>
+    private let browsingSubject: CurrentValueSubject<Bool, Never>
+    private let errorSubject: CurrentValueSubject<String?, Never>
     private var services: [String: NetService]
     private var devices: [String: DiscoveredDevice]
     private var isSearching: Bool
@@ -32,6 +38,8 @@ final class BonjourDiscoveryService: NSObject, BonjourDiscoveryProviding {
     override init() {
         browser = NetServiceBrowser()
         subject = CurrentValueSubject<[DiscoveredDevice], Never>([])
+        browsingSubject = CurrentValueSubject<Bool, Never>(false)
+        errorSubject = CurrentValueSubject<String?, Never>(nil)
         services = [:]
         devices = [:]
         isSearching = false
@@ -44,6 +52,16 @@ final class BonjourDiscoveryService: NSObject, BonjourDiscoveryProviding {
     /// Provides the current set of discovered devices to observers.
     var devicesPublisher: AnyPublisher<[DiscoveredDevice], Never> {
         subject.eraseToAnyPublisher()
+    }
+
+    /// Exposes the active browsing state to subscribers.
+    var isBrowsingPublisher: AnyPublisher<Bool, Never> {
+        browsingSubject.eraseToAnyPublisher()
+    }
+
+    /// Surfaces the most recent discovery error message.
+    var errorPublisher: AnyPublisher<String?, Never> {
+        errorSubject.eraseToAnyPublisher()
     }
 
     /// Starts Bonjour discovery when not already running.
@@ -85,6 +103,8 @@ final class BonjourDiscoveryService: NSObject, BonjourDiscoveryProviding {
     private func startUnsafe() {
         guard !isSearching else { return }
         isSearching = true
+        errorSubject.send(nil)
+        browsingSubject.send(true)
         browser.searchForServices(ofType: "_sprinkler._tcp.", inDomain: "local.")
     }
 
@@ -93,6 +113,7 @@ final class BonjourDiscoveryService: NSObject, BonjourDiscoveryProviding {
         pendingRestart = forRestart
         browser.stop()
         isSearching = false
+        browsingSubject.send(false)
         guard clearResults else { return }
         services.values.forEach { $0.stop() }
         services.removeAll()
@@ -197,6 +218,7 @@ extension BonjourDiscoveryService: NetServiceBrowserDelegate {
 
     func netServiceBrowserDidStopSearch(_ browser: NetServiceBrowser) {
         isSearching = false
+        browsingSubject.send(false)
         if pendingRestart {
             pendingRestart = false
             startUnsafe()
@@ -206,6 +228,8 @@ extension BonjourDiscoveryService: NetServiceBrowserDelegate {
     func netServiceBrowser(_ browser: NetServiceBrowser, didNotSearch errorDict: [String: NSNumber]) {
         pendingRestart = false
         isSearching = false
+        browsingSubject.send(false)
+        errorSubject.send(Self.errorMessage(from: errorDict))
     }
 }
 
@@ -218,6 +242,38 @@ extension BonjourDiscoveryService: NetServiceDelegate {
     func netService(_ sender: NetService, didNotResolve errorDict: [String: NSNumber]) {
         devices.removeValue(forKey: Self.serviceKey(for: sender))
         publishDevices()
+    }
+}
+
+private extension BonjourDiscoveryService {
+    /// Produces a user-facing message from a Bonjour error dictionary.
+    static func errorMessage(from errorDict: [String: NSNumber]) -> String? {
+        guard let codeNumber = errorDict[NetService.errorCode] else { return "Discovery failed." }
+        let code = codeNumber.intValue
+        guard let errorCode = NetService.ErrorCode(rawValue: code) else {
+            return "Discovery failed (code \(code))."
+        }
+
+        switch errorCode {
+        case .unknownError:
+            return "The network reported an unknown discovery error."
+        case .collisionError:
+            return "Another device is already using this service name."
+        case .notFoundError:
+            return "No sprinkler controllers were found on the network."
+        case .activityInProgress:
+            return "Discovery is already running."
+        case .badArgumentError:
+            return "The discovery request was malformed."
+        case .cancelledError:
+            return "Discovery was cancelled before finishing."
+        case .invalidError:
+            return "The discovery request was invalid."
+        case .timeoutError:
+            return "Discovery timed out before locating controllers."
+        @unknown default:
+            return "An unexpected discovery error occurred."
+        }
     }
 }
 
@@ -241,7 +297,12 @@ final class CurrentValueSubject<Output, Failure: Error> {
 /// Stub implementation for Linux where Bonjour discovery APIs are unavailable.
 final class BonjourDiscoveryService: BonjourDiscoveryProviding {
     private let subject = CurrentValueSubject<[DiscoveredDevice], Never>([])
+    private let browsingSubject = CurrentValueSubject<Bool, Never>(false)
+    private let errorSubject = CurrentValueSubject<String?, Never>(nil)
+
     var devicesPublisher: AnyPublisher<[DiscoveredDevice], Never> { subject.eraseToAnyPublisher() }
+    var isBrowsingPublisher: AnyPublisher<Bool, Never> { browsingSubject.eraseToAnyPublisher() }
+    var errorPublisher: AnyPublisher<String?, Never> { errorSubject.eraseToAnyPublisher() }
 
     func start() {}
     func stop() {}

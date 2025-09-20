@@ -26,18 +26,30 @@ final class DiscoveryViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] in self?.devices = $0 }
             .store(in: &cancellables)
+
+        service.isBrowsingPublisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] in self?.isBrowsing = $0 }
+            .store(in: &cancellables)
+
+        service.errorPublisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] in self?.errorMessage = $0 }
+            .store(in: &cancellables)
         #endif
     }
 
     /// Starts discovery and flips the browsing flag.
     func start() {
         isBrowsing = true
+        errorMessage = nil
         service.start()
     }
 
     /// Forces a new discovery pass by calling refresh on the service.
     func refresh() {
         isBrowsing = true
+        errorMessage = nil
         service.refresh()
     }
 
