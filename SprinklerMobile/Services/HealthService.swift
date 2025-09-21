@@ -34,7 +34,7 @@ struct HealthService: ConnectivityChecking {
                 var request = Self.makeStatusRequest(url: statusURL)
                 if let header { request.addValue(header.value, forHTTPHeaderField: header.key) }
 
-                let (data, response) = try await session.data(for: request)
+                let (data, response) = try await session.data(for: request, delegate: nil)
 
                 guard let http = response as? HTTPURLResponse else {
                     lastError = "Invalid response"

@@ -26,6 +26,7 @@ let package = Package(
             exclude: [
                 "Resources",
                 "Views",
+                "ViewModels/DashboardViewModel.swift",
                 "SprinklerMobileApp.swift",
                 "Stores/SprinklerStore.swift",
                 "Stores/PinCatalogMerger.swift",
@@ -60,8 +61,7 @@ let package = Package(
                 "Utils/ControllerConfig.swift",
                 "Utils/URLNormalize.swift",
                 "Utils/Validators.swift",
-                "ViewModels/DiscoveryViewModel.swift",
-                "ViewModels/DashboardViewModel.swift"
+                "ViewModels/DiscoveryViewModel.swift"
             ]
         ),
         .testTarget(
