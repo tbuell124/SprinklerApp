@@ -113,6 +113,11 @@ final class SprinklerStore: ObservableObject {
         case failed(Error)
     }
 
+    private enum StatusRefreshSource {
+        case interactive
+        case background
+    }
+
     private struct PendingOperation: Identifiable, Equatable {
         enum Kind: Equatable {
             case setPin(pin: Int, isOn: Bool, displayName: String)
@@ -177,6 +182,10 @@ final class SprinklerStore: ObservableObject {
     private let manualRainDelayKey = "sprinkler.manual_rain_delay_hours"
     private let timedRunQueueExpiry: TimeInterval = 15 * 60
     private let offlineQueueNotice = "Controller is unreachable. Pending changes will sync automatically once reconnected."
+    private let idlePollingInterval: TimeInterval = 20
+    private let activePollingInterval: TimeInterval = 5
+    private let offlinePollingInterval: TimeInterval = 30
+    private var statusPollingTask: Task<Void, Never>?
 
     init(userDefaults: UserDefaults = .standard,
          keychain: KeychainStoring = KeychainStorage(),
@@ -238,30 +247,22 @@ final class SprinklerStore: ObservableObject {
     }
 
     func refresh() async {
-        guard resolvedBaseURL != nil else { return }
-        isRefreshing = true
-        connectionStatus = .connecting
-        defer { isRefreshing = false }
-        do {
-            let start = Date()
-            let status = try await client.fetchStatus()
-            let now = Date()
-            connectionDiagnostics = ConnectionDiagnostics(timestamp: now,
-                                                          latency: now.timeIntervalSince(start))
-            apply(status: status)
-            statusCache.save(status)
-            connectionStatus = .connected(now)
-            recordConnectionSuccess(version: status.version)
-        } catch let error as APIError {
-            connectionStatus = .unreachable(error.localizedDescription)
-            recordConnectionFailure(error)
-            showToast(message: error.localizedDescription, style: .error)
-        } catch {
-            let apiError = APIError.invalidResponse
-            connectionStatus = .unreachable(apiError.localizedDescription)
-            recordConnectionFailure(apiError)
-            showToast(message: apiError.localizedDescription, style: .error)
+        await fetchStatus(source: .interactive)
+    }
+
+    func beginStatusPolling() {
+        if let task = statusPollingTask, !task.isCancelled {
+            return
         }
+        statusPollingTask = Task { [weak self] in
+            guard let self else { return }
+            await self.statusPollingLoop()
+        }
+    }
+
+    func endStatusPolling() {
+        statusPollingTask?.cancel()
+        statusPollingTask = nil
     }
 
     func saveAndTestTarget() async {
@@ -309,6 +310,73 @@ final class SprinklerStore: ObservableObject {
         validationError = nil
     }
 
+    private func fetchStatus(source: StatusRefreshSource) async {
+        guard resolvedBaseURL != nil else { return }
+        if source == .background, isRefreshing {
+            return
+        }
+
+        if source == .interactive {
+            isRefreshing = true
+            connectionStatus = .connecting
+        }
+
+        let start = Date()
+        defer {
+            if source == .interactive {
+                isRefreshing = false
+            }
+        }
+
+        do {
+            let status = try await client.fetchStatus()
+            let now = Date()
+            connectionDiagnostics = ConnectionDiagnostics(timestamp: now,
+                                                          latency: now.timeIntervalSince(start))
+            apply(status: status)
+            statusCache.save(status)
+            connectionStatus = .connected(now)
+            recordConnectionSuccess(version: status.version)
+        } catch let apiError as APIError {
+            handleStatusFetchFailure(apiError, source: source)
+        } catch {
+            handleStatusFetchFailure(.invalidResponse, source: source)
+        }
+    }
+
+    private func handleStatusFetchFailure(_ error: APIError, source: StatusRefreshSource) {
+        connectionStatus = .unreachable(error.localizedDescription)
+        recordConnectionFailure(error)
+        if source == .interactive {
+            showToast(message: error.localizedDescription, style: .error)
+        }
+    }
+
+    private func statusPollingLoop() async {
+        defer { statusPollingTask = nil }
+        while !Task.isCancelled {
+            if resolvedBaseURL != nil {
+                await fetchStatus(source: .background)
+            }
+
+            let delay = max(2.0, nextPollingInterval())
+            let nanoseconds = UInt64(delay * 1_000_000_000)
+            do {
+                try await Task.sleep(nanoseconds: nanoseconds)
+            } catch {
+                break
+            }
+        }
+    }
+
+    private func nextPollingInterval() -> TimeInterval {
+        guard resolvedBaseURL != nil else { return 10 }
+        if connectionStatus.isReachable {
+            return runningPins.isEmpty ? idlePollingInterval : activePollingInterval
+        }
+        return offlinePollingInterval
+    }
+
     func togglePin(_ pin: PinDTO, to desiredState: Bool) {
         guard let index = pins.firstIndex(where: { $0.id == pin.id }) else { return }
         let previousState = pins[index].isActive
@@ -328,6 +396,7 @@ final class SprinklerStore: ObservableObject {
             guard let self else { return }
             do {
                 try await self.client.setPin(pin.pin, on: desiredState)
+                await self.fetchStatus(source: .background)
             } catch let error as APIError {
                 await MainActor.run {
                     if case .unreachable = error {
@@ -1410,6 +1479,10 @@ final class SprinklerStore: ObservableObject {
         if self[keyPath: keyPath] != newValue {
             self[keyPath: keyPath] = newValue
         }
+    }
+
+    deinit {
+        statusPollingTask?.cancel()
     }
 }
 

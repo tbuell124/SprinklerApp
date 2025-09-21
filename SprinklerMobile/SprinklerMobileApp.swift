@@ -17,6 +17,9 @@ struct SprinklerMobileApp: App {
 }
 
 private struct RootView: View {
+    @EnvironmentObject private var sprinklerStore: SprinklerStore
+    @Environment(\.scenePhase) private var scenePhase
+
     var body: some View {
         TabView {
             DashboardView()
@@ -30,5 +33,16 @@ private struct RootView: View {
                 }
         }
         .tint(Color.appAccentPrimary)
+        .task { sprinklerStore.beginStatusPolling() }
+        .onChange(of: scenePhase) { _, newPhase in
+            switch newPhase {
+            case .active:
+                sprinklerStore.beginStatusPolling()
+            case .background, .inactive:
+                sprinklerStore.endStatusPolling()
+            @unknown default:
+                sprinklerStore.endStatusPolling()
+            }
+        }
     }
 }
