@@ -21,7 +21,10 @@ struct DashboardView: View {
     @EnvironmentObject private var connectivityStore: ConnectivityStore
     @EnvironmentObject private var sprinklerStore: SprinklerStore
     @Environment(\.scenePhase) private var scenePhase
-    @State private var pinListEditMode: EditMode = .inactive
+    @StateObject private var dashboardViewModel = DashboardViewModel(
+        sprinklerStore: SprinklerStore(), 
+        connectivityStore: ConnectivityStore()
+    )
 
     private var toastBinding: Binding<ToastState?> {
         Binding(get: { sprinklerStore.toast }, set: { sprinklerStore.toast = $0 })
@@ -49,14 +52,49 @@ struct DashboardView: View {
                         }
 
                         connectivityStatusBadge
-                        ledStatusCard
+                        
+                        DashboardCard(title: "LED Status") {
+                            dashboardSlotContent(
+                                loading: LEDStatusSkeleton(),
+                                content: LEDStatusSlot(
+                                    pins: sprinklerStore.pins,
+                                    connectivityState: connectivityStore.state,
+                                    lastSeenTime: dashboardViewModel.lastSeenTime
+                                )
+                            )
+                        }
+                        
                         DashboardCard(title: "Schedule Summary") {
-                            ScheduleSummaryView()
+                            dashboardSlotContent(
+                                loading: ScheduleSummarySkeleton(),
+                                content: ScheduleSummarySlot(
+                                    currentlyRunning: dashboardViewModel.currentlyRunning,
+                                    upNext: dashboardViewModel.upNext,
+                                    isEmpty: sprinklerStore.schedules.isEmpty
+                                )
+                            )
                         }
+                        
                         DashboardCard(title: "Pin Controls") {
-                            PinListSection(isRefreshing: sprinklerStore.isRefreshing)
+                            dashboardSlotContent(
+                                loading: PinControlsSkeleton(),
+                                content: PinControlsSlot(
+                                    pins: sprinklerStore.pins,
+                                    onTogglePin: dashboardViewModel.togglePin
+                                )
+                            )
                         }
-                        rainStatusCard
+                        
+                        DashboardCard(title: "Rain Status") {
+                            dashboardSlotContent(
+                                loading: RainStatusSkeleton(),
+                                content: RainStatusSlot(
+                                    rainDelayUntil: dashboardViewModel.rainDelayUntil,
+                                    isWeatherAvailable: sprinklerStore.rainAutomationEnabled,
+                                    onDisableRainDelay: dashboardViewModel.disableRainDelay
+                                )
+                            )
+                        }
                     }
                     .padding(.horizontal, 20)
                     .padding(.vertical, 24)
@@ -71,9 +109,37 @@ struct DashboardView: View {
                 guard newPhase == .active else { return }
                 Task { await refreshAll() }
             }
+            .onAppear {
+                dashboardViewModel.updateStores(sprinklerStore: sprinklerStore, connectivityStore: connectivityStore)
+            }
         }
-        .environment(\.editMode, $pinListEditMode)
         .toast(state: toastBinding)
+    }
+    
+    @ViewBuilder
+    private func dashboardSlotContent<Loading: View, Content: View>(
+        loading: Loading,
+        content: Content
+    ) -> some View {
+        switch dashboardViewModel.state {
+        case .loading:
+            loading
+        case .ready:
+            content
+        case .error(let message, let retry):
+            VStack(spacing: 12) {
+                Text("Error: \(message)")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                
+                Button("Retry") {
+                    Task { await retry() }
+                }
+                .buttonStyle(.bordered)
+            }
+            .frame(maxWidth: .infinity)
+            .padding()
+        }
     }
 
     /// High level controller connectivity indicator shown at the top of the dashboard.
@@ -83,33 +149,6 @@ struct DashboardView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// Section containing a compact grid of GPIO indicators along with controller and rain status lights.
-    private var ledStatusCard: some View {
-        DashboardCard(title: "LED Status") {
-            GPIOIndicatorGrid(pins: sprinklerStore.pins,
-                              controllerState: connectivityStore.state,
-                              rain: sprinklerStore.rain,
-                              isRainAutomationEnabled: sprinklerStore.rainAutomationEnabled)
-        }
-    }
-
-    /// Section visualising the current rain automation configuration and live delay state.
-    private var rainStatusCard: some View {
-        DashboardCard(title: "Rain Status") {
-            RainStatusView(rain: sprinklerStore.rain,
-                           connectivity: connectivityStore.state,
-                           isLoading: sprinklerStore.isRefreshing,
-                           isAutomationEnabled: sprinklerStore.rainAutomationEnabled,
-                           isUpdatingAutomation: sprinklerStore.isUpdatingRainAutomation,
-                           manualDelayHours: sprinklerStore.manualRainDelayHours,
-                           onToggleRain: { isActive, duration in
-                               let resolvedDuration = isActive ? (duration ?? sprinklerStore.manualRainDelayHours) : nil
-                               sprinklerStore.setRain(active: isActive, durationHours: resolvedDuration)
-                           },
-                           onToggleAutomation: sprinklerStore.setRainAutomationEnabled,
-                           onUpdateManualRainDuration: sprinklerStore.updateManualRainDelayHours)
-        }
-    }
 
     /// Toolbar button mirroring pull-to-refresh for additional discoverability.
     private var refreshToolbarItem: some ToolbarContent {
