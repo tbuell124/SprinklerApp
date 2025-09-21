@@ -106,6 +106,7 @@ final class SprinklerStore: ObservableObject {
     private var pendingScheduleReorder: [String]?
     private var pendingOperations: [PendingOperation] = []
     private var isFlushingPendingOperations = false
+    private var recentPinToggles: [Int: RecentPinToggle] = [:]
 
     private enum ScheduleSyncOutcome {
         case synced
@@ -120,7 +121,7 @@ final class SprinklerStore: ObservableObject {
 
     private struct PendingOperation: Identifiable, Equatable {
         enum Kind: Equatable {
-            case setPin(pin: Int, isOn: Bool, displayName: String)
+            case setPin(pin: Int, isOn: Bool, minutes: Int?, displayName: String)
             case timedPinRun(pin: Int, durationMinutes: Int, displayName: String)
             case updatePin(pin: Int, name: String?, isEnabled: Bool, displayName: String)
             case reorderPins(order: [Int])
@@ -140,7 +141,7 @@ final class SprinklerStore: ObservableObject {
 
         var coalescingKey: String? {
             switch kind {
-            case .setPin(let pin, _, _), .timedPinRun(let pin, _, _), .updatePin(let pin, _, _, _):
+            case .setPin(let pin, _, _, _), .timedPinRun(let pin, _, _), .updatePin(let pin, _, _, _):
                 return "pin-\(pin)"
             case .reorderPins:
                 return "pin-reorder"
@@ -157,6 +158,11 @@ final class SprinklerStore: ObservableObject {
             guard case .timedPinRun = kind else { return false }
             return referenceDate.timeIntervalSince(enqueuedAt) > timeout
         }
+    }
+
+    private struct RecentPinToggle {
+        let desiredState: Bool
+        let timestamp: Date
     }
     private lazy var bonjourDiscovery: BonjourServiceDiscovery = {
         BonjourServiceDiscovery(
@@ -185,6 +191,8 @@ final class SprinklerStore: ObservableObject {
     private let idlePollingInterval: TimeInterval = 20
     private let activePollingInterval: TimeInterval = 5
     private let offlinePollingInterval: TimeInterval = 30
+    private let manualToggleDefaultDurationMinutes = 5
+    private let pinToggleOverrideWindow: TimeInterval = 15
     private var statusPollingTask: Task<Void, Never>?
 
     init(userDefaults: UserDefaults = .standard,
@@ -380,11 +388,15 @@ final class SprinklerStore: ObservableObject {
     func togglePin(_ pin: PinDTO, to desiredState: Bool) {
         guard let index = pins.firstIndex(where: { $0.id == pin.id }) else { return }
         let previousState = pins[index].isActive
+        if previousState == desiredState { return }
         pins[index].isActive = desiredState
 
+        let overrideMinutes = desiredState ? manualToggleDefaultDurationMinutes : nil
         let operation = PendingOperation(kind: .setPin(pin: pin.pin,
                                                        isOn: desiredState,
+                                                       minutes: overrideMinutes,
                                                        displayName: pin.displayName))
+        registerRecentToggle(pin: pin.pin, desiredState: desiredState)
 
         guard connectionStatus.isReachable else {
             enqueuePendingOperation(operation, notice: offlineQueueNotice)
@@ -395,7 +407,7 @@ final class SprinklerStore: ObservableObject {
         Task { [weak self] in
             guard let self else { return }
             do {
-                try await self.client.setPin(pin.pin, on: desiredState)
+                try await self.client.setPin(pin.pin, on: desiredState, minutes: overrideMinutes)
                 await self.fetchStatus(source: .background)
             } catch let error as APIError {
                 await MainActor.run {
@@ -404,12 +416,14 @@ final class SprinklerStore: ObservableObject {
                         self.recordConnectionFailure(error)
                         self.enqueuePendingOperation(operation, notice: self.offlineQueueNotice)
                         self.persistCurrentStateSnapshot()
+                        self.recentPinToggles.removeValue(forKey: pin.pin)
                         return
                     }
 
                     if let revertIndex = self.pins.firstIndex(where: { $0.id == pin.id }) {
                         self.pins[revertIndex].isActive = previousState
                     }
+                    self.recentPinToggles.removeValue(forKey: pin.pin)
                     self.connectionErrorMessage = error.localizedDescription
                     self.showToast(message: self.toastMessage(for: error, defaultMessage: "Failed to update pin"),
                                    style: .error)
@@ -419,6 +433,7 @@ final class SprinklerStore: ObservableObject {
                     if let revertIndex = self.pins.firstIndex(where: { $0.id == pin.id }) {
                         self.pins[revertIndex].isActive = previousState
                     }
+                    self.recentPinToggles.removeValue(forKey: pin.pin)
                     self.connectionErrorMessage = APIError.invalidResponse.localizedDescription
                     self.showToast(message: "Failed to update pin", style: .error)
                 }
@@ -493,6 +508,16 @@ final class SprinklerStore: ObservableObject {
                 }
             }
         }
+    }
+
+    private func registerRecentToggle(pin: Int, desiredState: Bool) {
+        purgeExpiredRecentToggles()
+        recentPinToggles[pin] = RecentPinToggle(desiredState: desiredState, timestamp: Date())
+    }
+
+    private func purgeExpiredRecentToggles(referenceDate: Date = Date()) {
+        let cutoff = referenceDate.addingTimeInterval(-pinToggleOverrideWindow)
+        recentPinToggles = recentPinToggles.filter { _, value in value.timestamp >= cutoff }
     }
 
     func renamePin(_ pin: PinDTO, newName: String) {
@@ -1029,7 +1054,22 @@ final class SprinklerStore: ObservableObject {
     }
 
     private func apply(status: StatusDTO) {
-        let mergedPins = PinCatalogMerger.merge(current: pins, remote: status.pins)
+        purgeExpiredRecentToggles(referenceDate: status.lastUpdated ?? Date())
+        var mergedPins = PinCatalogMerger.merge(current: pins, remote: status.pins)
+        if !recentPinToggles.isEmpty {
+            var overrides = recentPinToggles
+            mergedPins = mergedPins.map { pin in
+                guard let override = overrides[pin.pin] else { return pin }
+                if pin.isActive == override.desiredState {
+                    overrides.removeValue(forKey: pin.pin)
+                    return pin
+                }
+                var adjusted = pin
+                adjusted.isActive = override.desiredState
+                return adjusted
+            }
+            recentPinToggles = overrides
+        }
         assignIfDifferent(\SprinklerStore.pins, to: mergedPins)
         let remoteSchedules = (status.schedules ?? []).map { Schedule(dto: $0, defaultPins: mergedPins) }
         mergeSchedulesWithRemote(remoteSchedules)
@@ -1423,8 +1463,8 @@ final class SprinklerStore: ObservableObject {
 
     private func perform(_ operation: PendingOperation) async throws {
         switch operation.kind {
-        case .setPin(let pin, let isOn, _):
-            try await client.setPin(pin, on: isOn)
+        case .setPin(let pin, let isOn, let minutes, _):
+            try await client.setPin(pin, on: isOn, minutes: minutes ?? (isOn ? manualToggleDefaultDurationMinutes : nil))
         case .timedPinRun(let pin, let durationMinutes, _):
             try await client.setPin(pin, on: true, minutes: durationMinutes)
         case .updatePin(let pin, let name, let isEnabled, _):

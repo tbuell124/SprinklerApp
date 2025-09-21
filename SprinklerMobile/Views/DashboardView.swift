@@ -510,6 +510,7 @@ private struct PinListSection: View {
                             PinControlRow(pin: pin,
                                           durationBinding: binding(for: pin),
                                           focus: $focusedDurationField,
+                                          isRainDelayActive: store.rain?.isActive == true,
                                           onToggle: togglePin(_:desiredState:),
                                           onRun: runPin(_:minutes:))
                                 .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
@@ -619,12 +620,19 @@ private struct PinControlRow: View {
     let pin: PinDTO
     @Binding var durationBinding: String
     let focus: FocusState<Int?>.Binding
+    let isRainDelayActive: Bool
     let onToggle: (PinDTO, Bool) -> Void
     let onRun: (PinDTO, Int) -> Void
 
     private var isEnabled: Bool { pin.isEnabled ?? true }
     private var isActive: Bool { pin.isActive ?? false }
     private var minutesValue: Int? { Int(durationBinding) }
+    private var canToggle: Bool { isEnabled && !isRainDelayActive }
+    private var canStart: Bool { isEnabled && !isActive && !isRainDelayActive }
+    private var rainDelayMessage: String? {
+        guard isRainDelayActive else { return nil }
+        return "Rain delay active. Manual watering is temporarily disabled."
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -640,24 +648,37 @@ private struct PinControlRow: View {
 
                 Spacer()
 
-                Toggle(isOn: Binding(
-                    get: { pin.isActive ?? false },
-                    set: { newValue in
-                        if isEnabled {
-                            onToggle(pin, newValue)
+                VStack(alignment: .trailing, spacing: 4) {
+                    Toggle(isOn: Binding(
+                        get: { pin.isActive ?? false },
+                        set: { newValue in
+                            if canToggle {
+                                onToggle(pin, newValue)
+                            }
                         }
+                    )) {
+                        EmptyView()
                     }
-                )) {
-                    EmptyView()
+                    .labelsHidden()
+                    .disabled(!canToggle)
+                    .accessibilityLabel("Toggle \(pin.displayName)")
+                    .accessibilityHint(canToggle ? "Double tap to \(pin.isActive ?? false ? "turn off" : "activate") this zone." : "Rain delay is active. Wait until it clears to control this zone.")
+
+                    if isRainDelayActive {
+                        Label("Rain delay active", systemImage: "cloud.rain.fill")
+                            .font(.appCaption)
+                            .foregroundStyle(Color.appInfo)
+                            .accessibilityHidden(true)
+                    }
                 }
-                .labelsHidden()
-                .disabled(!isEnabled)
-                .accessibilityLabel("Toggle \(pin.displayName)")
-                .accessibilityHint("Double tap to \(pin.isActive ?? false ? "turn off" : "activate") this zone.")
             }
 
             if !isEnabled {
                 Text("Enable in Settings to control this zone.")
+                    .font(.appCaption)
+                    .foregroundStyle(.secondary)
+            } else if let rainDelayMessage {
+                Text(rainDelayMessage)
                     .font(.appCaption)
                     .foregroundStyle(.secondary)
             }
@@ -669,7 +690,7 @@ private struct PinControlRow: View {
                     .disableAutocorrection(true)
                     .textFieldStyle(.roundedBorder)
                     .frame(minWidth: 80)
-                    .disabled(!isEnabled || isActive)
+                    .disabled(!isEnabled || isActive || isRainDelayActive)
                     .focused(focus, equals: pin.pin)
                     .submitLabel(.done)
                     .accessibilityLabel("Run duration for \(pin.displayName)")
@@ -683,8 +704,8 @@ private struct PinControlRow: View {
                     }
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(!isEnabled || isActive || (minutesValue ?? 0) <= 0)
-                .accessibilityHint("Double tap to start the zone for the specified duration.")
+                .disabled(!canStart || (minutesValue ?? 0) <= 0)
+                .accessibilityHint(canStart ? "Double tap to start the zone for the specified duration." : "Rain delay is active. Wait until it clears to run this zone.")
 
                 if isActive {
                     Text("Running…")
