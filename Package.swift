@@ -26,6 +26,7 @@ let package = Package(
             exclude: [
                 "Resources",
                 "Views",
+                "ViewModels/DashboardViewModel.swift",
                 "SprinklerMobileApp.swift",
                 "Stores/SprinklerStore.swift",
                 "Stores/PinCatalogMerger.swift",

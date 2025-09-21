@@ -56,6 +56,12 @@
 		62D0AA012F0A1B2000000001 /* ConnectionTestLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62D0AA002F0A1B2000000001 /* ConnectionTestLog.swift */; };
 		62D0AA032F0A1B2000000001 /* PinSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62D0AA022F0A1B2000000001 /* PinSettingsView.swift */; };
 		AAA5C1E62E8D2F9000C533F1 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAA5C1E52E8D2F9000C533F1 /* Theme.swift */; };
+		A9B8BC6568912933B310F1D7 /* DashboardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E5CFD587CEFB73E72BB46BB /* DashboardViewModel.swift */; };
+		ECD04A1F6ECB837933680D83 /* LEDStatusSlot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B706000B22DB567571F9456 /* LEDStatusSlot.swift */; };
+		877163DB4D08D4B0169BF975 /* ScheduleSummarySlot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41EC4E9430DFBF5861EEE645 /* ScheduleSummarySlot.swift */; };
+		9BA4F916DC7D4A4663FD3435 /* PinControlsSlot.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7E6D92DFC266C4F864F1590 /* PinControlsSlot.swift */; };
+		30BF7474C7355D2AFEB3008D /* RainStatusSlot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 772C9BCB1C65678BD3F4975C /* RainStatusSlot.swift */; };
+		BEE915D4C57873500656FD8E /* DashboardSkeletons.swift in Sources */ = {isa = PBXBuildFile; fileRef = A182DF6F78C8CB3F10F7A1F1 /* DashboardSkeletons.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -123,6 +129,12 @@
 		62D0AA002F0A1B2000000001 /* ConnectionTestLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionTestLog.swift; sourceTree = "<group>"; };
 		62D0AA022F0A1B2000000001 /* PinSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinSettingsView.swift; sourceTree = "<group>"; };
 		AAA5C1E52E8D2F9000C533F1 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		6E5CFD587CEFB73E72BB46BB /* DashboardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardViewModel.swift; sourceTree = "<group>"; };
+		0B706000B22DB567571F9456 /* LEDStatusSlot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LEDStatusSlot.swift; sourceTree = "<group>"; };
+		41EC4E9430DFBF5861EEE645 /* ScheduleSummarySlot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleSummarySlot.swift; sourceTree = "<group>"; };
+		F7E6D92DFC266C4F864F1590 /* PinControlsSlot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinControlsSlot.swift; sourceTree = "<group>"; };
+		772C9BCB1C65678BD3F4975C /* RainStatusSlot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RainStatusSlot.swift; sourceTree = "<group>"; };
+		A182DF6F78C8CB3F10F7A1F1 /* DashboardSkeletons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardSkeletons.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -242,6 +254,7 @@
 		6251FB7D2E7C7DCF001856FD /* ViewModels */ = {
 			isa = PBXGroup;
 			children = (
+				6E5CFD587CEFB73E72BB46BB /* DashboardViewModel.swift */,
 				6251FB7C2E7C7DCF001856FD /* DiscoveryViewModel.swift */,
 			);
 			path = ViewModels;
@@ -251,6 +264,7 @@
 			isa = PBXGroup;
 			children = (
 				35B35E7822DC4DCA8899B282 /* BannerMessageView.swift */,
+				20F06D6D7BA091FDDF823CB9 /* Components */,
 				6251FB7E2E7C7DCF001856FD /* ConnectivityBadgeView.swift */,
 				6251FB7F2E7C7DCF001856FD /* DashboardView.swift */,
 				6251FB802E7C7DCF001856FD /* PinRowView.swift */,
@@ -263,6 +277,26 @@
 				62D0AA022F0A1B2000000001 /* PinSettingsView.swift */,
 			);
 			path = Views;
+			sourceTree = "<group>";
+		};
+		20F06D6D7BA091FDDF823CB9 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				A6709CC758FDDF19EAF5AADD /* DashboardSlots */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		A6709CC758FDDF19EAF5AADD /* DashboardSlots */ = {
+			isa = PBXGroup;
+			children = (
+				A182DF6F78C8CB3F10F7A1F1 /* DashboardSkeletons.swift */,
+				0B706000B22DB567571F9456 /* LEDStatusSlot.swift */,
+				F7E6D92DFC266C4F864F1590 /* PinControlsSlot.swift */,
+				772C9BCB1C65678BD3F4975C /* RainStatusSlot.swift */,
+				41EC4E9430DFBF5861EEE645 /* ScheduleSummarySlot.swift */,
+			);
+			path = DashboardSlots;
 			sourceTree = "<group>";
 		};
 		6251FB892E7C7DCF001856FD /* SprinklerMobile */ = {
@@ -458,6 +492,12 @@
                                 6251FBB22E7C7DCF001856FD /* APIError.swift in Sources */,
                                 6251FBB32E7C7DCF001856FD /* AuthenticationController.swift in Sources */,
                                 30EFCF9138EE400195C87690 /* AuthenticationProtocols.swift in Sources */,
+				A9B8BC6568912933B310F1D7 /* DashboardViewModel.swift in Sources */,
+				ECD04A1F6ECB837933680D83 /* LEDStatusSlot.swift in Sources */,
+				877163DB4D08D4B0169BF975 /* ScheduleSummarySlot.swift in Sources */,
+				9BA4F916DC7D4A4663FD3435 /* PinControlsSlot.swift in Sources */,
+				30BF7474C7355D2AFEB3008D /* RainStatusSlot.swift in Sources */,
+				BEE915D4C57873500656FD8E /* DashboardSkeletons.swift in Sources */,
                         );
 			runOnlyForDeploymentPostprocessing = 0;
 		};
