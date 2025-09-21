@@ -75,6 +75,32 @@ extension Schedule {
     static let defaultStartTime = "06:00"
     static let defaultDurationMinutes = 10
     static let defaultDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    
+    func nextRunDate(after date: Date = Date()) -> Date? {
+        guard isEnabled && !days.isEmpty else { return nil }
+        
+        let calendar = Calendar.current
+        let timeComponents = startTime.split(separator: ":")
+        guard timeComponents.count == 2,
+              let hour = Int(timeComponents[0]),
+              let minute = Int(timeComponents[1]) else { return nil }
+        
+        let dayNames = ["sun": 1, "mon": 2, "tue": 3, "wed": 4, "thu": 5, "fri": 6, "sat": 7]
+        let scheduleDays = Set(days.compactMap { dayNames[$0.lowercased()] })
+        
+        for dayOffset in 0..<8 {
+            let candidateDate = calendar.date(byAdding: .day, value: dayOffset, to: date)!
+            let weekday = calendar.component(.weekday, from: candidateDate)
+            
+            if scheduleDays.contains(weekday) {
+                let scheduleTime = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: candidateDate)!
+                if scheduleTime > date {
+                    return scheduleTime
+                }
+            }
+        }
+        return nil
+    }
 }
 
 extension Schedule {
