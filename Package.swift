@@ -60,7 +60,8 @@ let package = Package(
                 "Utils/ControllerConfig.swift",
                 "Utils/URLNormalize.swift",
                 "Utils/Validators.swift",
-                "ViewModels/DiscoveryViewModel.swift"
+                "ViewModels/DiscoveryViewModel.swift",
+                "ViewModels/DashboardViewModel.swift"
             ]
         ),
         .testTarget(
