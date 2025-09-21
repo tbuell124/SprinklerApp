@@ -108,6 +108,22 @@ final class SprinklerStore: ObservableObject {
     private var isFlushingPendingOperations = false
     private var recentPinToggles: [Int: RecentPinToggle] = [:]
 
+    /// Safely mutates an individual pin while ensuring SwiftUI observes the change.
+    private func updatePin(at index: Int, mutate: (inout PinDTO) -> Void) {
+        guard pins.indices.contains(index) else { return }
+        var updatedPins = pins
+        mutate(&updatedPins[index])
+        pins = updatedPins
+    }
+
+    /// Replaces the pin at the specified index with a new value, triggering view updates.
+    private func replacePin(at index: Int, with pin: PinDTO) {
+        guard pins.indices.contains(index) else { return }
+        var updatedPins = pins
+        updatedPins[index] = pin
+        pins = updatedPins
+    }
+
     private enum ScheduleSyncOutcome {
         case synced
         case deferred
@@ -387,9 +403,10 @@ final class SprinklerStore: ObservableObject {
 
     func togglePin(_ pin: PinDTO, to desiredState: Bool) {
         guard let index = pins.firstIndex(where: { $0.id == pin.id }) else { return }
-        let previousState = pins[index].isActive
+        let previousPin = pins[index]
+        let previousState = previousPin.isActive
         if previousState == desiredState { return }
-        pins[index].isActive = desiredState
+        updatePin(at: index) { $0.isActive = desiredState }
 
         let overrideMinutes = desiredState ? manualToggleDefaultDurationMinutes : nil
         let operation = PendingOperation(kind: .setPin(pin: pin.pin,
@@ -421,7 +438,7 @@ final class SprinklerStore: ObservableObject {
                     }
 
                     if let revertIndex = self.pins.firstIndex(where: { $0.id == pin.id }) {
-                        self.pins[revertIndex].isActive = previousState
+                        self.updatePin(at: revertIndex) { $0.isActive = previousState }
                     }
                     self.recentPinToggles.removeValue(forKey: pin.pin)
                     self.connectionErrorMessage = error.localizedDescription
@@ -431,7 +448,7 @@ final class SprinklerStore: ObservableObject {
             } catch {
                 await MainActor.run {
                     if let revertIndex = self.pins.firstIndex(where: { $0.id == pin.id }) {
-                        self.pins[revertIndex].isActive = previousState
+                        self.updatePin(at: revertIndex) { $0.isActive = previousState }
                     }
                     self.recentPinToggles.removeValue(forKey: pin.pin)
                     self.connectionErrorMessage = APIError.invalidResponse.localizedDescription
@@ -457,8 +474,9 @@ final class SprinklerStore: ObservableObject {
             return
         }
 
-        let previouslyActive = pins[index].isActive ?? false
-        pins[index].isActive = true
+        let previousPin = pins[index]
+        let previouslyActive = previousPin.isActive ?? false
+        updatePin(at: index) { $0.isActive = true }
 
         let operation = PendingOperation(kind: .timedPinRun(pin: pin.pin,
                                                             durationMinutes: sanitizedMinutes,
@@ -467,7 +485,7 @@ final class SprinklerStore: ObservableObject {
         let offlineMessage = "\(pin.displayName) will start once the controller reconnects."
 
         guard connectionStatus.isReachable else {
-            pins[index].isActive = previouslyActive
+            replacePin(at: index, with: previousPin)
             enqueuePendingOperation(operation, notice: nil, forceNotice: true)
             showToast(message: offlineMessage, style: .info)
             return
@@ -484,7 +502,7 @@ final class SprinklerStore: ObservableObject {
             } catch let error as APIError {
                 await MainActor.run {
                     if let revertIndex = self.pins.firstIndex(where: { $0.id == pin.id }) {
-                        self.pins[revertIndex].isActive = previouslyActive
+                        self.updatePin(at: revertIndex) { $0.isActive = previousPin.isActive }
                     }
                     if case .unreachable = error {
                         self.connectionStatus = .unreachable(error.localizedDescription)
@@ -501,7 +519,7 @@ final class SprinklerStore: ObservableObject {
             } catch {
                 await MainActor.run {
                     if let revertIndex = self.pins.firstIndex(where: { $0.id == pin.id }) {
-                        self.pins[revertIndex].isActive = previouslyActive
+                        self.updatePin(at: revertIndex) { $0.isActive = previousPin.isActive }
                     }
                     self.connectionErrorMessage = APIError.invalidResponse.localizedDescription
                     self.showToast(message: "Failed to start \(pin.displayName)", style: .error)
@@ -529,7 +547,7 @@ final class SprinklerStore: ObservableObject {
         guard currentNormalized != normalizedNewName else { return }
 
         let previousPin = pins[index]
-        pins[index].name = normalizedNewName
+        updatePin(at: index) { $0.name = normalizedNewName }
         let isEnabled = pins[index].isEnabled ?? pin.isEnabled ?? true
 
         let operation = PendingOperation(kind: .updatePin(pin: pin.pin,
@@ -565,7 +583,7 @@ final class SprinklerStore: ObservableObject {
                     }
 
                     if let revertIndex = self.pins.firstIndex(where: { $0.id == pin.id }) {
-                        self.pins[revertIndex] = previousPin
+                        self.replacePin(at: revertIndex, with: previousPin)
                     }
                     self.connectionErrorMessage = error.localizedDescription
                     self.showToast(message: self.toastMessage(for: error, defaultMessage: "Rename failed"),
@@ -575,7 +593,7 @@ final class SprinklerStore: ObservableObject {
                 await MainActor.run { [weak self] in
                     guard let self else { return }
                     if let revertIndex = self.pins.firstIndex(where: { $0.id == pin.id }) {
-                        self.pins[revertIndex] = previousPin
+                        self.replacePin(at: revertIndex, with: previousPin)
                     }
                     self.connectionErrorMessage = APIError.invalidResponse.localizedDescription
                     self.showToast(message: self.toastMessage(for: error, defaultMessage: "Rename failed"),
@@ -588,7 +606,7 @@ final class SprinklerStore: ObservableObject {
     func setPinEnabled(_ pin: PinDTO, isEnabled: Bool) {
         guard let index = pins.firstIndex(where: { $0.id == pin.id }) else { return }
         let previous = pins[index]
-        pins[index].isEnabled = isEnabled
+        updatePin(at: index) { $0.isEnabled = isEnabled }
 
         let normalizedName = normalizedName(from: pins[index].name)
         let operation = PendingOperation(kind: .updatePin(pin: pin.pin,
@@ -624,7 +642,7 @@ final class SprinklerStore: ObservableObject {
                     }
 
                     if let revertIndex = self.pins.firstIndex(where: { $0.id == pin.id }) {
-                        self.pins[revertIndex] = previous
+                        self.replacePin(at: revertIndex, with: previous)
                     }
                     self.connectionErrorMessage = error.localizedDescription
                     self.showToast(message: "Failed to update pin", style: .error)
@@ -632,7 +650,7 @@ final class SprinklerStore: ObservableObject {
             } catch {
                 await MainActor.run {
                     if let revertIndex = self.pins.firstIndex(where: { $0.id == pin.id }) {
-                        self.pins[revertIndex] = previous
+                        self.replacePin(at: revertIndex, with: previous)
                     }
                     self.connectionErrorMessage = APIError.invalidResponse.localizedDescription
                     self.showToast(message: "Failed to update pin", style: .error)
